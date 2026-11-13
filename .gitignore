@@ -1,0 +1,40 @@
+# ビルド成果物
+build/
+rootfs/
+iso/
+
+# OS 生成ファイル
+*.img
+*.iso
+*.bin
+*.elf
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 秘密情報・環境設定
+.env
+.env.local
+*.key
+*.pem
+*.secret
+credentials/
+
+# IDE / エディタ
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 一時ファイル
+*.log
+tmp/
+temp/

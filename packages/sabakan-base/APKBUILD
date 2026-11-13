@@ -1,0 +1,106 @@
+# SabakanOS ベースパッケージレシピ (APKBUILD 形式 / apk 互換)
+# 日本語ロケール・タイムゾーン・キーボード・デフォルトシェル設定を rootfs へインストール
+
+# Maintainer: SabakanOS レーンC チーム <sabakan-os-lanec@example.com>
+pkgname=sabakan-base
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="SabakanOS ベースシステム設定 (ja_JP.UTF-8, Asia/Tokyo, jp106 キーボード, busybox sh デフォルト)"
+url="https://github.com/ryotagtagtag-wq/sabakan-os"
+arch="all"
+license="MIT"
+depends="busybox alpine-baselayout"
+makedepends=""
+install="sabakan-base.post-install"
+subpackages=""
+
+source=""
+sha512sums=""
+
+builddir="$srcdir"
+
+# ソースなし (設定ファイルのみを直接インストール)
+prepare() {
+    return 0
+}
+
+build() {
+    return 0
+}
+
+package() {
+    # --- 日本語ロケール設定 ---
+    mkdir -p "$pkgdir/etc"
+    cat > "$pkgdir/etc/locale.gen" <<'EOF'
+# SabakanOS 日本語ロケール (レーンC 配置)
+ja_JP.UTF-8 UTF-8
+ja_JP EUC-JP
+en_US.UTF-8 UTF-8
+en_US ISO-8859-1
+EOF
+
+    # --- タイムゾーン設定 ---
+    echo "Asia/Tokyo" > "$pkgdir/etc/timezone"
+    # /etc/localtime は /usr/share/zoneinfo/Asia/Tokyo へのシンボリックリンク
+    ln -sf ../usr/share/zoneinfo/Asia/Tokyo "$pkgdir/etc/localtime"
+
+    # --- キーボード設定 (106キー / 日本語) ---
+    # OpenRC 用 keymaps サービス設定
+    mkdir -p "$pkgdir/etc/conf.d"
+    cat > "$pkgdir/etc/conf.d/keymaps" <<'EOF'
+# SabakanOS キーボード設定 (レーンC 配置)
+# 106キー日本語キーボード
+keymap="jp106"
+# keycode テーブル (必要に応じて)
+#keycode=""
+EOF
+
+    # X11/Wayland 用キーボード設定 (代替)
+    mkdir -p "$pkgdir/etc/default"
+    cat > "$pkgdir/etc/default/keyboard" <<'EOF'
+# SabakanOS キーボード設定 (レーンC 配置 / X11, Wayland 用)
+XKBMODEL="jp106"
+XKBLAYOUT="jp"
+XKBVARIANT=""
+XKBOPTIONS="terminate:ctrl_alt_bksp"
+EOF
+
+    # --- デフォルトシェル設定 (busybox sh / ash) ---
+    # GPLv3 の bash をデフォルトシェルに入れず、busybox sh をデフォルトとする
+    cat > "$pkgdir/etc/shells" <<'EOF'
+# SabakanOS 有効ログインシェル (レーンC 配置)
+# デフォルトシェル: busybox sh (ash)
+/bin/busybox
+/bin/sh
+# オプションパッケージ bash (GPLv3 のためデフォルトには含めない)
+# /bin/bash
+EOF
+
+    # ロケール環境変数 (profile.d)
+    mkdir -p "$pkgdir/etc/profile.d"
+    cat > "$pkgdir/etc/profile.d/locale.sh" <<'EOF'
+# SabakanOS ロケール環境変数 (レーンC 配置)
+export LANG=ja_JP.UTF-8
+export LC_ALL=ja_JP.UTF-8
+export LC_CTYPE=ja_JP.UTF-8
+export TZ=Asia/Tokyo
+EOF
+
+    # man ページ・ドキュメント用ディレクトリ (space holder)
+    mkdir -p "$pkgdir/usr/share/man"
+    mkdir -p "$pkgdir/usr/share/doc"
+}
+
+# post-install スクリプト (rootfs 組込時 or 初回起動時に実行)
+cat > "$builddir/sabakan-base.post-install" <<'EOF'
+#!/bin/sh
+# sabakan-base インストール後処理
+# locale-gen があれば実行して ja_JP.UTF-8 を生成
+if [ -x /usr/sbin/locale-gen ]; then
+    /usr/sbin/locale-gen
+fi
+# タイムゾーンリンクの確認
+ln -sf ../usr/share/zoneinfo/Asia/Tokyo /etc/localtime 2>/dev/null || true
+echo "sabakan-base: ja_JP.UTF-8 / Asia/Tokyo / jp106 キーボード / busybox sh デフォルト を適用しました"
+EOF
+chmod +x "$builddir/sabakan-base.post-install"

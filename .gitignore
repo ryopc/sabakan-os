@@ -1,7 +1,10 @@
 # ビルド成果物
 build/
 rootfs/
-iso/
+
+# iso/ は成果物の出力先だが、ライセンス一覧 (iso/COPYING) のみ追跡する
+iso/*
+!iso/COPYING
 
 # OS 生成ファイル
 *.img
@@ -38,3 +41,6 @@ credentials/
 *.log
 tmp/
 temp/
+
+# Buildroot およびクロスツールチェイン導入先
+tool/

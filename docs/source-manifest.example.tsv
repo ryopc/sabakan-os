@@ -1,0 +1,14 @@
+# SabakanOS ソースマニフェスト テンプレート
+# 書式: タブ区切り UTF-8 / 列仕様は docs/source-flow.md の 5.1 を参照
+# 使い方: このファイルを docs/source-manifest.tsv にコピーし、実際の値で埋める
+# 注意: '#' で始まる行はコメントとして扱う。値が未確定の間は TBD と書かず、行を削除する
+component	version	license	upstream_url	source_url	sha256	patches	in_iso	notes
+linux-kernel	6.18.63	GPL-2.0-only	https://www.kernel.org	https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.18.63.tar.xz		config/kernel-defconfig	yes	カーネル設定は config/kernel-defconfig を適用
+busybox	1.37.0	GPL-2.0-only	https://busybox.net	https://busybox.net/downloads/busybox-1.37.0.tar.bz2			yes	ビルド時 .config を併せて提供する
+musl	1.2.5	MIT	https://musl.libc.org	https://musl.libc.org/releases/musl-1.2.5.tar.gz			yes	
+openrc	0.56	BSD-2-Clause	https://github.com/OpenRC/openrc	https://github.com/OpenRC/openrc/archive/refs/tags/0.56.tar.gz			yes	
+apk-tools	2.14.4	GPL-2.0-only	https://gitlab.alpinelinux.org/alpine/apk-tools	https://gitlab.alpinelinux.org/alpine/apk-tools/-/archive/v2.14.4/apk-tools-v2.14.4.tar.gz			yes	
+alpine-baselayout	3.7.2	GPL-2.0-only	https://gitlab.alpinelinux.org/alpine/aports	https://gitlab.alpinelinux.org/alpine/aports/-/archive/master/aports-master.tar.gz			yes	main/alpine-baselayout の APKBUILD とファイルを抜粋して提供
+limine	8.x	BSD-2-Clause	https://github.com/limine-bootloader/limine	https://github.com/limine-bootloader/limine/releases			yes	limine-bios.sys / limine-efi.sys を同梱
+buildroot	2026.08.1	GPL-2.0-or-later	https://buildroot.org	https://buildroot.org/downloads/buildroot-2026.08.1.tar.xz			no	ビルドホスト専用（ISO 非同梱）
+xorriso	1.5.x	GPL-3.0-or-later	https://www.gnu.org/software/xorriso	https://ftp.gnu.org/gnu/xorriso/xorriso-1.5.x.tar.gz			no	ビルドホスト専用（ISO 非同梱）

@@ -1,0 +1,441 @@
+name: CI
+
+# push / pull request でドキュメント・ライセンス・ビルドを検証する。
+# release.yml から workflow_call で再利用される。
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+  LC_ALL: C.UTF-8
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  docs:
+    name: ドキュメント検証
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: 必須ファイルの存在確認
+        run: |
+          set -euo pipefail
+          status=0
+          for f in \
+            README.md \
+            LICENSE \
+            docs/requirements.md \
+            docs/license.md \
+            docs/source-flow.md \
+            docs/source-manifest.example.tsv \
+            iso/COPYING \
+            .github/workflows/ci.yml \
+            .github/workflows/release.yml; do
+            if [ ! -s "$f" ]; then
+              echo "::error file=$f::必須ファイルが存在しないか、内容が空です"
+              status=1
+            fi
+          done
+          exit "$status"
+
+      - name: README の記載項目を確認
+        run: |
+          set -euo pipefail
+          status=0
+          check() {
+            if ! grep -q -- "$1" README.md; then
+              echo "::error file=README.md::「$1」に関する記載がありません"
+              status=1
+            fi
+          }
+          check "make build-kernel"
+          check "make build-rootfs"
+          check "インストール手順"
+          check "日本語環境設定"
+          check "ディレクトリ構成"
+          check "ライセンス"
+          exit "$status"
+
+      - name: Markdown の相対リンクを検証
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          link_re = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+          errors = []
+
+          for md in pathlib.Path(".").rglob("*.md"):
+              if ".git" in md.parts:
+                  continue
+              text = md.read_text(encoding="utf-8")
+              for target in link_re.findall(text):
+                  target = target.strip().strip("<>")
+                  if target.startswith(("http://", "https://", "mailto:", "#")):
+                      continue
+                  path = target.split("#", 1)[0]
+                  if not path:
+                      continue
+                  if not (md.parent / path).resolve().exists():
+                      errors.append(f"{md}: リンク切れ -> {target}")
+
+          for e in errors:
+              print(f"::error::{e}")
+          sys.exit(1 if errors else 0)
+          PY
+
+  license:
+    name: ライセンス検証
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: iso/COPYING の記載確認
+        run: |
+          set -euo pipefail
+          status=0
+          for name in \
+            "Linux kernel" \
+            "BusyBox" \
+            "Limine" \
+            "OpenRC" \
+            "apk-tools" \
+            "GPL-2.0" \
+            "BSD-2-Clause" \
+            "SIL OFL 1.1" \
+            "対応ソースコードの取得方法"; do
+            if ! grep -q -- "$name" iso/COPYING; then
+              echo "::error file=iso/COPYING::「$name」の記載がありません"
+              status=1
+            fi
+          done
+          if ! grep -q -- "/usr/share/licenses/" iso/COPYING; then
+            echo "::error file=iso/COPYING::ライセンス全文の配置先が記載されていません"
+            status=1
+          fi
+          exit "$status"
+
+      - name: ライセンス方針ドキュメントの確認
+        run: |
+          set -euo pipefail
+          status=0
+          for f in docs/license.md docs/source-flow.md; do
+            for keyword in GPL-2.0 LGPL Written; do
+              if ! grep -q -- "$keyword" "$f"; then
+                echo "::error file=$f::「$keyword」に関する記載がありません"
+                status=1
+              fi
+            done
+          done
+          exit "$status"
+
+      - name: ソースマニフェストの書式確認
+        run: |
+          set -euo pipefail
+          manifest=docs/source-manifest.example.tsv
+          if [ ! -s "$manifest" ]; then
+            echo "::error::マニフェストのテンプレートがありません"
+            exit 1
+          fi
+          awk -F'\t' '
+            /^#/ { next }
+            {
+              if (NF != 9) {
+                printf "::error file=%s::ヘッダの列数が 9 ではありません（%d 列）\n", FILENAME, NF
+                exit 1
+              }
+              if ($1 != "component" || $2 != "version" || $3 != "license" || $8 != "in_iso" || $9 != "notes") {
+                printf "::error file=%s::ヘッダの列名が仕様と一致しません\n", FILENAME
+                exit 1
+              }
+              exit 0
+            }
+          ' "$manifest"
+
+      - name: 秘密情報の混入チェック
+        run: |
+          set -euo pipefail
+          status=0
+          patterns='AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+          if git grep -n -E -I "$patterns" -- . ':!*.md' ':!.github/workflows'; then
+            echo "::error::秘密情報の可能性がある文字列を検出しました"
+            status=1
+          fi
+          while IFS= read -r f; do
+            case "$f" in
+              *.example|*.sample|*.md) continue ;;
+            esac
+            echo "::error file=$f::秘密情報ファイルが追跡されています"
+            status=1
+          done < <(git ls-files '*.pem' '*.key' '.env' '*.p12' '*.keystore' || true)
+          exit "$status"
+
+  build_kernel:
+    name: カーネルビルド
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Makefile の存在確認
+        run: |
+          if [ ! -f Makefile ]; then
+            echo "::error::Makefile が見つかりません。実装レーンのビルド基盤が必要です（docs/requirements.md 第 6 章）"
+            exit 1
+          fi
+
+      - name: ビルド依存の導入
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential bc bison flex libelf-dev libssl-dev dwarves \
+            cpio kmod rsync curl wget xz-utils git make zstd
+
+      - name: ビルド環境の情報
+        run: |
+          nproc
+          free -m
+          df -h .
+
+      - name: カーネルをビルド
+        run: make build-kernel
+
+      - name: 成果物の確認
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          images=(build/linux-*/arch/x86/boot/bzImage)
+          configs=(build/linux-*/.config)
+          if [ "${#images[@]}" -eq 0 ]; then
+            echo "::error::bzImage が生成されていません（クロスコンパイラ不在でスキップされた可能性があります）"
+            ls -la build 2>/dev/null || true
+            exit 1
+          fi
+          if [ "${#configs[@]}" -eq 0 ]; then
+            echo "::error::.config が生成されていません"
+            exit 1
+          fi
+          ls -lh "${images[@]}" "${configs[@]}"
+          if [ -f config/kernel-defconfig ]; then
+            echo "カーネル設定の差分（config/kernel-defconfig）:"
+            head -n 20 config/kernel-defconfig
+          fi
+
+      - name: 成果物をアップロード
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-build
+          path: |
+            build/linux-*/arch/x86/boot/bzImage
+            build/linux-*/.config
+          if-no-files-found: error
+          retention-days: 7
+
+  build_rootfs:
+    name: ルートFSビルド
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Makefile の存在確認
+        run: |
+          if [ ! -f Makefile ]; then
+            echo "::error::Makefile が見つかりません。実装レーンのビルド基盤が必要です（docs/requirements.md 第 6 章）"
+            exit 1
+          fi
+
+      - name: ビルド依存の導入
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential rsync curl wget xz-utils git make zstd \
+            fakeroot squashfs-tools cpio kmod bc
+
+      - name: ルートFSをビルド
+        run: make build-rootfs
+
+      - name: 成果物の確認
+        run: |
+          set -euo pipefail
+          du -sh rootfs
+          for f in rootfs/init rootfs/etc/passwd rootfs/etc/hostname; do
+            if [ ! -e "$f" ]; then
+              echo "::error::$f が存在しません"
+              exit 1
+            fi
+          done
+          if [ ! -L rootfs/bin/sh ] && [ ! -e rootfs/bin/sh ]; then
+            echo "::error::rootfs/bin/sh が存在しません"
+            exit 1
+          fi
+          ls -la rootfs/bin/sh
+
+      - name: ルートFSをアーカイブ
+        run: sudo tar -C rootfs -cf rootfs.tar .
+
+      - name: 成果物をアップロード
+        uses: actions/upload-artifact@v4
+        with:
+          name: rootfs-build
+          path: rootfs.tar
+          if-no-files-found: error
+          retention-days: 7
+
+  build_iso:
+    name: ISO ビルド（参考）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    needs:
+      - build_kernel
+      - build_rootfs
+    # カーネル成果物の受け渡しと Limine の入手がレーン間で未接続のため、
+    # 現時点では参考ジョブとして実行する（失敗しても CI 全体は失敗にしない）。
+    # docs/requirements.md 6.1 の未接続点が解消したら continue-on-error を外す。
+    continue-on-error: true
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: ビルド依存の導入
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential rsync curl wget xz-utils git make zstd \
+            xorriso mtools dosfstools cpio kmod
+
+      - name: カーネル成果物を取得
+        uses: actions/download-artifact@v4
+        with:
+          name: kernel-build
+          path: build
+
+      - name: ルートFS成果物を取得
+        uses: actions/download-artifact@v4
+        with:
+          name: rootfs-build
+          path: .
+
+      - name: ルートFSを展開
+        run: |
+          set -euo pipefail
+          mkdir -p rootfs
+          sudo tar -C rootfs -xf rootfs.tar
+          rm -f rootfs.tar
+
+      - name: カーネルを ISO 生成スクリプトの候補パスへ配置
+        run: |
+          set -euo pipefail
+          image=$(find build -type f -name bzImage -print -quit)
+          if [ -z "$image" ]; then
+            echo "::error::bzImage が見つかりません"
+            find build -maxdepth 3 -type f | head -n 20 || true
+            exit 1
+          fi
+          mkdir -p build/kernel
+          cp "$image" build/kernel
+          ls -lh build/kernel
+
+      - name: Limine を取得
+        run: |
+          set -euo pipefail
+          mkdir -p build/limine
+          url=$(curl -fsSL https://api.github.com/repos/limine-bootloader/limine/releases/latest \
+            | grep -o 'https://[^"]*limine-[0-9.]*-binary\.tar\.gz' | head -n 1 || true)
+          if [ -z "$url" ]; then
+            echo "::warning::Limine の取得先を特定できませんでした（レート制限または API 変更）"
+            exit 0
+          fi
+          curl -fsSL -o limine.tar.gz "$url"
+          tar -xzf limine.tar.gz -C build/limine --strip-components=1
+          find build/limine -maxdepth 1 -name 'limine-*.sys' -print
+
+      - name: ISO をビルド
+        run: ./scripts/build-iso.sh
+
+      - name: ISO の確認
+        run: |
+          set -euo pipefail
+          if [ ! -s build/sabakanos.iso ]; then
+            echo "::error::ISO が生成されていません"
+            exit 1
+          fi
+          ls -lh build/sabakanos.iso
+          sha256sum build/sabakanos.iso | tee build/SHA256SUMS
+          if [ ! -s iso/COPYING ]; then
+            echo "::error::iso/COPYING がありません。ライセンス一覧を同梱してください"
+            exit 1
+          fi
+
+      - name: ISO をアップロード
+        uses: actions/upload-artifact@v4
+        with:
+          name: iso-image
+          path: |
+            build/sabakanos.iso
+            build/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
+
+  ci-summary:
+    name: 検証サマリ
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs:
+      - docs
+      - license
+      - build_kernel
+      - build_rootfs
+      - build_iso
+    if: always()
+    steps:
+      - name: 結果をまとめる
+        run: |
+          set -uo pipefail
+          echo "docs          : ${{ needs.docs.result }}"
+          echo "license       : ${{ needs.license.result }}"
+          echo "build_kernel  : ${{ needs.build_kernel.result }}"
+          echo "build_rootfs  : ${{ needs.build_rootfs.result }}"
+          echo "build_iso     : ${{ needs.build_iso.result }}（参考）"
+
+          status=0
+          for pair in \
+            "docs:${{ needs.docs.result }}" \
+            "license:${{ needs.license.result }}" \
+            "build_kernel:${{ needs.build_kernel.result }}" \
+            "build_rootfs:${{ needs.build_rootfs.result }}"; do
+            name=${pair%%:*}
+            result=${pair##*:}
+            if [ "$result" != "success" ]; then
+              echo "::error::$name ジョブが失敗しました（$result）"
+              status=1
+            fi
+          done
+
+          if [ "${{ needs.build_iso.result }}" != "success" ]; then
+            echo "::warning::ISO ビルドは失敗しましたが、現時点では参考扱いのため CI は失敗にしません（docs/requirements.md 6.1）"
+          fi
+          exit "$status"

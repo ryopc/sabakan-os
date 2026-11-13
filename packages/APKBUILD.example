@@ -1,0 +1,50 @@
+# SabakanOS 独自パッケージレシピ テンプレート (APKBUILD 形式 / apk 互換)
+#
+# このファイルは新規パッケージの雛形としてコピーして使用してください。
+# 実際のパッケージは packages/<pkgname>/APKBUILD に配置します。
+#
+# ビルド要領:
+#   $ cd packages/<pkgname>
+#   $ abuild -r          # (abuild を使う場合)
+#   または APKBUILD の記述に従い、rootfs へファイルをインストール
+
+# Maintainer: SabakanOS チーム <sabakan-os@example.com>
+pkgname=パッケージ名
+pkgver=1.0.0
+pkgrel=0
+pkgdesc="パッケージの簡単な説明"
+url="https://example.com/"
+arch="all"
+license="MIT"            # GPLv3 は保守的にデフォルトから除外すること
+depends=""               # 実行時依存 (スペース区切り)
+makedepends=""           # ビルド時依存 (スペース区切り)
+install=""               # インストール/アンインストールスクリプト
+subpackages=""           # サブパッケージ (doc, dev, など)
+
+source="$pkgname-$pkgver.tar.gz"
+# source="$pkgname-$pkgver.tar.gz::https://example.com/archive/$pkgname-$pkgver.tar.gz"
+
+builddir="$srcdir/$pkgname-$pkgver"
+
+# 検証用チェックサム (sha512sum などで生成)
+sha512sums=""
+
+prepare() {
+    # ソースの展開・パッチ適用など
+    default_prepare
+}
+
+build() {
+    # ビルド手順 (make など)
+    # default_build
+}
+
+package() {
+    # rootfs へのインストール手順
+    # default_install
+    # 例: mkdir -p "$pkgdir/usr/bin"
+    #      cp foo "$pkgdir/usr/bin/"
+}
+
+# 以下、必要に応じてオーバーライド
+# check() { default_check; }

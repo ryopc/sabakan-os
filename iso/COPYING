@@ -1,0 +1,211 @@
+================================================================================
+ SabakanOS 同梱ソフトウェアのライセンスについて
+ (Third-Party Software Licenses in SabakanOS)
+================================================================================
+
+配布物:    SabakanOS 0.1.0-dev (x86_64)
+発行日:    2026-11-13
+管理元:    SabakanOS Project
+
+本ファイルは、SabakanOS の ISO イメージに含まれるオープンソースソフトウェア
+(OSS) の一覧と、それぞれのライセンス条件・ライセンス全文の所在・対応ソース
+コードの取得方法をまとめたものです。
+
+本ファイル自体はライセンス全文ではありません。各ライセンスの全文は、ISO 内の
+次のディレクトリに収録されています。
+
+    /usr/share/licenses/<component>/COPYING
+    /usr/share/licenses/<component>/LICENSE
+    /usr/share/licenses/<component>/LICENCE
+    /usr/share/licenses/<component>/LICENSE.*
+
+SabakanOS のビルドスクリプト・設定ファイル・ドキュメント（プロジェクト固有の
+著作物）は MIT License で提供されます。全文は ISO 内の
+/usr/share/licenses/sabakanos/LICENSE およびリポジトリ直下の LICENSE を
+参照してください。MIT License は同梱 OSS のライセンスを置き換えるものでは
+ありません。
+
+一覧は config/packages.txt（ベースパッケージ）と config/buildroot-defconfig
+（ルートFS構成）に基づきます。リリース時点の正確な構成は、同梱の
+ソースマニフェストおよび SBOM を参照してください。
+
+
+--------------------------------------------------------------------------------
+1. コアシステム
+--------------------------------------------------------------------------------
+
+ コンポーネント        | ライセンス                  | ライセンス全文の所在
+-----------------------+-----------------------------+----------------------------
+ Linux kernel 6.18.63  | GPL-2.0-only                | /usr/share/licenses/linux-kernel/
+ BusyBox               | GPL-2.0-only                | /usr/share/licenses/busybox/
+ musl libc             | MIT                         | /usr/share/licenses/musl/
+ OpenRC                | BSD-2-Clause                | /usr/share/licenses/openrc/
+ apk-tools             | GPL-2.0-only                | /usr/share/licenses/apk-tools/
+ alpine-baselayout     | GPL-2.0-only                | /usr/share/licenses/alpine-baselayout/
+
+
+--------------------------------------------------------------------------------
+2. ブートローダー
+--------------------------------------------------------------------------------
+
+ コンポーネント        | ライセンス                  | ライセンス全文の所在
+-----------------------+-----------------------------+----------------------------
+ Limine                | BSD-2-Clause                | /usr/share/licenses/limine/
+
+Limine の本体（limine-bios.sys、limine-efi.sys）は ISO の /boot/ と
+/EFI/BOOT/ に配置されます。
+
+
+--------------------------------------------------------------------------------
+3. ネットワーク
+--------------------------------------------------------------------------------
+
+ コンポーネント        | ライセンス                  | ライセンス全文の所在
+-----------------------+-----------------------------+----------------------------
+ dhcpcd                | BSD-2-Clause                | /usr/share/licenses/dhcpcd/
+ wpa_supplicant        | BSD-3-Clause                | /usr/share/licenses/wpa_supplicant/
+ wireless-tools        | GPL-2.0-only                | /usr/share/licenses/wireless-tools/
+ iptables              | GPL-2.0-only                | /usr/share/licenses/iptables/
+ iproute2              | GPL-2.0-or-later            | /usr/share/licenses/iproute2/
+ OpenSSH               | SSH 独自（BSD 系）          | /usr/share/licenses/openssh/
+
+
+--------------------------------------------------------------------------------
+4. システム管理・ユーティリティ
+--------------------------------------------------------------------------------
+
+ コンポーネント        | ライセンス                  | ライセンス全文の所在
+-----------------------+-----------------------------+----------------------------
+ sudo                  | ISC                         | /usr/share/licenses/sudo/
+ procps-ng             | GPL-2.0-or-later /          | /usr/share/licenses/procps/
+                       | LGPL-2.1-or-later           |
+ cronie                | MIT および BSD              | /usr/share/licenses/cronie/
+ less                  | GPL-3.0-or-later または     | /usr/share/licenses/less/
+                       | BSD-2-Clause（デュアル）    |
+ vi / vim              | BusyBox アプレットは        | /usr/share/licenses/busybox/
+                       | GPL-2.0-only、vim は         | /usr/share/licenses/vim/
+                       | Vim license                 |
+ grep / gzip / tar     | BusyBox アプレットは        | /usr/share/licenses/busybox/
+                       | GPL-2.0-only                |
+ syslog (busybox)      | GPL-2.0-only                | /usr/share/licenses/busybox/
+ ロケール定義          | MIT                         | /usr/share/licenses/musl-locales/
+ キーボード定義        | GPL-2.0 系                  | /usr/share/licenses/kbd/
+
+補足: grep、gzip、tar、vi は BusyBox のアプレットとして提供される限り、
+BusyBox の GPL-2.0-only に含まれます。GNU 版を別途導入した場合は、
+それぞれのライセンス（多くは GPL-3.0-or-later）が追加されます。
+bash は既定では同梱されません（GPL-3.0-or-later、利用者が任意で導入）。
+
+
+--------------------------------------------------------------------------------
+5. 日本語環境（同梱時に本節を有効化）
+--------------------------------------------------------------------------------
+
+日本語環境は要件として定義済みですが、本リリースには同梱されていません。
+同梱を開始するリリースでは、以下のコンポーネントを追加し、ライセンス全文を
+/usr/share/licenses/ 配下に配置したうえで本節を有効化します。
+
+ コンポーネント        | ライセンス                  | ライセンス全文の所在
+-----------------------+-----------------------------+----------------------------
+ Mozc                  | BSD-3-Clause                | /usr/share/licenses/mozc/
+ Mozc 辞書データ       | BSD-3-Clause                | /usr/share/licenses/mozc/
+ IBus                  | LGPL-2.1-or-later           | /usr/share/licenses/ibus/
+ Fcitx5                | LGPL-2.1-or-later           | /usr/share/licenses/fcitx5/
+ Noto Sans CJK JP      | SIL OFL 1.1                 | /usr/share/licenses/noto-cjk/
+ Noto Serif CJK JP     | SIL OFL 1.1                 | /usr/share/licenses/noto-cjk/
+ IPAex フォント        | IPA Font License 1.0        | /usr/share/licenses/ipaex-fonts/
+
+
+--------------------------------------------------------------------------------
+6. ライセンス条件の要約
+--------------------------------------------------------------------------------
+
+(1) GPL-2.0-only / GPL-2.0-or-later
+
+    - ソースコードの再配布には、対応する完全なソースコードの提供が必要です。
+    - ライセンス全文と著作権表示を保持する必要があります。
+    - 再配布に追加の制限を課すことはできません。
+    - 本 ISO に含まれる該当コンポーネントの対応ソースは、下記 7. の方法で
+      入手できます。
+
+(2) GPL-3.0-or-later
+
+    - (1) の義務に加え、製品によってはインストール情報の提供が必要です。
+    - 追加の特許制限を課すことはできません。
+
+(3) LGPL-2.1-or-later
+
+    - ライセンス全文と著作権表示の同梱が必要です。
+    - 対応ソースの提供、および改変した場合は再リンク可能な形態での提供が
+      必要です。
+
+(4) MIT / BSD-2-Clause / BSD-3-Clause / ISC / SSH 独自
+
+    - 著作権表示とライセンス全文を同梱する必要があります。
+    - BSD-3-Clause は、著作権者名を宣伝目的で使用しない条件を含みます。
+
+(5) SIL OFL 1.1
+
+    - ライセンス全文の同梱が必要です。
+    - フォント単体の販売はできません。
+    - 改変版には元の Reserved Font Name を使用できません。
+
+(6) IPA Font License 1.0
+
+    - ライセンス全文の同梱が必要です。
+    - 改変・再配布には同ライセンスの条件が適用されます。
+
+(7) 複数ライセンスのファイル
+
+    - less のようにデュアルライセンスのものは、適用したライセンスを
+      同ディレクトリ内の表示で確認してください。
+
+
+--------------------------------------------------------------------------------
+7. 対応ソースコードの取得方法
+--------------------------------------------------------------------------------
+
+GPL / LGPL の対象コンポーネントについて、SabakanOS は対応する完全な
+ソースコードを提供します。ビルドに使用した設定ファイル
+（config/kernel-defconfig、config/buildroot-defconfig）、パッチ、ビルド
+スクリプトも含みます。
+
+  配布ページ:
+    https://github.com/ryotagtagtag-wq/sabakan-os/releases
+
+  各リリースには次のファイルが添付されます。
+    - sabakanos-<version>-x86_64.iso
+    - sabakanos-<version>-source.tar.zst      ← 対応ソース一式
+    - COPYING                                  ← 本ファイル
+    - SHA256SUMS                               ← 全添付ファイルのハッシュ
+
+  取得方法の詳細およびマニフェストの書式は、リポジトリ内の
+  docs/source-flow.md を参照してください。
+
+  上記の方法で入手できない場合は、下記の連絡先までご連絡ください。
+  書面による申し出 (Written Offer) に基づき、配布日から 3 年間、
+  対応ソースコードの完全なコピーを提供します。
+
+
+--------------------------------------------------------------------------------
+8. 連絡先
+--------------------------------------------------------------------------------
+
+  SabakanOS Project
+  https://github.com/ryotagtagtag-wq/sabakan-os
+
+  ライセンスに関する問い合わせは、リポジトリの Issue で受け付けます。
+
+
+--------------------------------------------------------------------------------
+9. 更新について
+--------------------------------------------------------------------------------
+
+本ファイルは、ISO に同梱されるコンポーネントの変更に合わせて更新します。
+リポジトリの docs/license.md に詳細な方針とリリース前チェックリストを
+記載しています。本ファイルと docs/license.md の内容が食い違う場合は、
+リリース時点の ISO に同梱された本ファイルを正とします。
+
+================================================================================
+ End of file
+================================================================================

@@ -1,0 +1,44 @@
+# SabakanOS レーンC ベースパッケージリスト
+# パッケージマネージャ: apk (Alpine 互換 / APKBUILD 形式レシピ)
+# シェル: busybox sh をデフォルトシェルとし、bash はオプションパッケージとして扱う (GPLv3 回避)
+
+# --- コアシステム ---
+busybox                 # 基本ユーティリティ + デフォルトシェル (/bin/sh)
+openrc                  # init システム (サービス管理)
+alpine-baselayout       # ベースディレクトリレイアウト / 基本スクリプト
+apk-tools               # パッケージマネージャ本体 (apk)
+
+# --- シェル ---
+# busybox ash が /bin/sh としてデフォルト。bash は GPLv3 のためオプション。
+bash                    # オプション (インストール不要・任意)
+
+# --- ネットワーク ---
+dhcpcd                  # DHCP クライアント
+wpa_supplicant          # Wi-Fi 認証
+wireless-tools          # 無線 LAN ツール
+iptables                # パケットフィルタ
+iproute2                # IP ルーティング/インタフェース管理
+
+# --- リモート管理 ---
+openssh                 # SSH サーバー/クライアント
+openssh-client          # SSH クライアント (分離パッケージの場合)
+openssh-server          # SSH サーバー (分離パッケージの場合)
+dropbear                # 軽量 SSH (代替オプション)
+
+# --- 権限管理 ---
+sudo                    # 特権コマンド実行
+
+# --- エディタ/ユーティリティ ---
+vi                      # ビエディタ (busybox vi または vim-tiny)
+less                    # ページャ
+grep                    # テキスト検索
+gzip tar                # アーカイブ/圧縮
+
+# --- システム管理 ---
+syslog                  # システムログ
+cronie                  # cron デーモン
+procps                  # プロセス管理 (ps, top, free 等)
+
+# --- 日本語ロケール/キーボード ---
+# ja_JP.UTF-8 ロケール、Asia/Tokyo タイムゾーン、106キーキーボード設定は
+# rootfs/etc 以下に直接配置 (本レーンC 所有)

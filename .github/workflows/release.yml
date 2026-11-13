@@ -1,0 +1,146 @@
+name: Release
+
+# v*.*.* タグの push で ISO とソースバンドルを GitHub Release に添付する。
+# ライセンス遵守のため、ISO と対応ソースは必ず同一リリースに添付する
+# （docs/source-flow.md 7.1）。
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ci:
+    name: リリース前検証
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  release:
+    name: Release 作成
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    needs: ci
+    permissions:
+      contents: write
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ISO 成果物を取得
+        uses: actions/download-artifact@v4
+        with:
+          name: iso-image
+          path: dist
+
+      - name: 成果物の確認とリネーム
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          iso=$(find dist -type f -name 'sabakanos.iso' -print -quit)
+          if [ -z "$iso" ]; then
+            echo "::error::ISO が見つかりません。CI の build_iso ジョブを確認してください"
+            find dist -type f | head -n 20 || true
+            exit 1
+          fi
+          target="dist/sabakanos-${version}-x86_64.iso"
+          mv "$iso" "$target"
+          rm -f dist/SHA256SUMS
+          ls -lh dist
+          test -s iso/COPYING
+
+      - name: ソースバンドルを作成
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends zstd
+          version="${GITHUB_REF_NAME#v}"
+          bundle="dist/sabakanos-${version}-source.tar.zst"
+
+          if make -n source-bundle >/dev/null 2>&1; then
+            make source-bundle
+            src=$(find build/source -maxdepth 1 -name '*.tar.*' -print -quit)
+            if [ -n "$src" ]; then
+              cp "$src" "$bundle"
+            fi
+          fi
+
+          if [ ! -f "$bundle" ]; then
+            echo "::warning::make source-bundle が未実装のため、リポジトリ本体をソースバンドルとして添付します"
+            echo "::warning::同梱 OSS の対応ソースは docs/source-flow.md の手順で別途用意してください"
+            git archive --format=tar --prefix="sabakanos-${version}/" HEAD | zstd -19 -T0 -o "$bundle"
+          fi
+
+          ls -lh "$bundle"
+
+      - name: チェックサムとライセンス一覧を添付
+        run: |
+          set -euo pipefail
+          cp iso/COPYING dist/COPYING
+          (cd dist && sha256sum ./* > SHA256SUMS)
+          cat dist/SHA256SUMS
+
+      - name: リリースノートを作成
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          cat > notes.md <<EOF
+          ## SabakanOS ${version}
+
+          ### 添付ファイル
+
+          | ファイル | 内容 |
+          |----------|------|
+          | \`sabakanos-${version}-x86_64.iso\` | インストール / Live 用 ISO イメージ |
+          | \`sabakanos-${version}-source.tar.zst\` | 対応ソースコード一式 |
+          | \`COPYING\` | 同梱 OSS のライセンス一覧 |
+          | \`SHA256SUMS\` | 全添付ファイルの SHA-256 |
+
+          ### ライセンス
+
+          本リリースには GPL-2.0、GPL-3.0、LGPL-2.1、SIL OFL 1.1 などの
+          オープンソースソフトウェアが含まれます。ライセンス一覧は \`COPYING\` を、
+          対応ソースコードの取得方法は
+          [docs/source-flow.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/docs/source-flow.md)
+          を参照してください。
+
+          GPL / LGPL 対象コンポーネントの対応ソースは、本リリースの
+          \`sabakanos-${version}-source.tar.zst\` に含まれます。
+          EOF
+          cat notes.md
+
+      - name: Release を作成
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "SabakanOS ${GITHUB_REF_NAME#v}" \
+            --notes-file notes.md \
+            dist/*
+
+      - name: 添付結果の確認
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release view "${GITHUB_REF_NAME}" --json assets \
+            --jq '.assets[].name' | sort
+          count=$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets | length')
+          if [ "$count" -lt 4 ]; then
+            echo "::error::添付ファイルが不足しています（${count} 件）。ISO・ソース・COPYING・SHA256SUMS が必要です"
+            exit 1
+          fi

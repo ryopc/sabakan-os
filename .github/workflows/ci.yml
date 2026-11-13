@@ -68,10 +68,12 @@ jobs:
           }
           check "make build-kernel"
           check "make build-rootfs"
-          check "インストール手順"
-          check "日本語環境設定"
-          check "ディレクトリ構成"
-          check "ライセンス"
+          check "## Installation"
+          check "## Japanese Environment Setup"
+          check "## Directory Layout"
+          check "## License"
+          check "MIT License"
+          check "GPL-2.0-only"
           exit "$status"
 
       - name: Markdown の相対リンクを検証
@@ -124,7 +126,8 @@ jobs:
             "GPL-2.0" \
             "BSD-2-Clause" \
             "SIL OFL 1.1" \
-            "対応ソースコードの取得方法"; do
+            "Obtaining the Corresponding Source Code" \
+            "MIT License"; do
             if ! grep -q -- "$name" iso/COPYING; then
               echo "::error file=iso/COPYING::「$name」の記載がありません"
               status=1

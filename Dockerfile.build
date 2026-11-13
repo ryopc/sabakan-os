@@ -1,0 +1,38 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    curl \
+    wget \
+    xorriso \
+    qemu-system-x86 \
+    qemu-utils \
+    bc \
+    bison \
+    flex \
+    libssl-dev \
+    libncurses5-dev \
+    xz-utils \
+    rsync \
+    ca-certificates \
+    gcc-x86-64-linux-gnu \
+    binutils-x86-64-linux-gnu \
+    libelf-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Limine ブートローダ本体を取得 (最新版 v12.9.6、ビルド済みバイナリ)
+RUN LIMINE_VERSION=12.9.6 && \
+    curl -fsSL -o /tmp/limine-binary.tar.gz \
+        "https://github.com/Limine-Bootloader/Limine/releases/download/v${LIMINE_VERSION}/limine-binary.tar.gz" && \
+    mkdir -p /opt/limine && \
+    tar -xzf /tmp/limine-binary.tar.gz -C /opt/limine --strip-components=1 && \
+    rm -f /tmp/limine-binary.tar.gz
+
+ENV LIMINE_DIR=/opt/limine
+
+WORKDIR /workspace
+
+CMD ["bash"]

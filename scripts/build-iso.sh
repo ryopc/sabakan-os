@@ -99,16 +99,19 @@ resolve_limine_binaries() {
         [[ -n "$LIMINE_BIOS" && -n "$LIMINE_EFI" ]] && break
     done
 
-    if [[ -z "$LIMINE_BIOS" || -z "$LIMINE_EFI" ]]; then
-        die "Limine ブートローダ本体が見つかりません。\n"\
+    if [[ -z "$LIMINE_BIOS" ]]; then
+        die "Limine ブートローダ本体 (limine-bios.sys) が見つかりません。\n"\
             "  入手: https://github.com/limine-bootloader/limine/releases\n"\
-            "  必要ファイル: limine-bios.sys, limine-efi.sys\n"\
             "  環境変数 LIMINE_DIR に本体ディレクトリを指定するか、\n"\
             "  build/limine や boot/limine に配置してください。"
     fi
 
     log "Limine BIOS: $LIMINE_BIOS"
-    log "Limine EFI : $LIMINE_EFI"
+    if [[ -z "$LIMINE_EFI" ]]; then
+        warn "Limine EFI (limine-efi.sys) が見つかりません。EFI ブートはスキップし、BIOS ブートのみで ISO を生成します。"
+    else
+        log "Limine EFI : $LIMINE_EFI"
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -123,6 +126,7 @@ resolve_kernel_and_initramfs() {
         "$BUILD_DIR/kernel"
         "$BUILD_DIR/kernel.elf"
         "$BUILD_DIR/bzImage"
+        "$BUILD_DIR/linux-6.18.63/arch/x86/boot/bzImage"
         "$PROJECT_ROOT/rootfs/boot/kernel"
         "$PROJECT_ROOT/rootfs/boot/kernel.elf"
         "$PROJECT_ROOT/rootfs/boot/bzImage"

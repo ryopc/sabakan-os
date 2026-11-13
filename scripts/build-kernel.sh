@@ -30,6 +30,10 @@ else
     _MAKE="make"
 fi
 
+# macOS では Apple ld と互換性がないため、LLVM (clang+lld) を使用する。
+# Clang Built Linux 対応により macOS 上で x86_64 カーネルをビルド可能。
+HOSTCFLAGS="-Iscripts/macos-include -I$(brew --prefix libelf)/include"
+
 BUILD_DIR="${ROOT}/build"
 SRC_DIR="${BUILD_DIR}/linux-${KERNEL_VERSION}"
 CONFIG_FILE="${ROOT}/config/kernel-defconfig"
@@ -59,49 +63,36 @@ fi
 cd "${SRC_DIR}"
 
 # ---- 2. x86_64 defconfig をベースにレーンA設定を適用 ----
-log "x86_64 defconfig を生成中 (ARCH=x86_64)"
+log "x86_64 defconfig を生成中 (ARCH=x86_64, LLVM=1)"
 USE_DEFCONFIG=0
-if ${_MAKE} ARCH=x86_64 defconfig >/dev/null 2>&1; then
+if ${_MAKE} ARCH=x86_64 LLVM=1 HOSTCFLAGS="${HOSTCFLAGS}" defconfig >/dev/null 2>&1; then
     USE_DEFCONFIG=1
     log "レーンA カーネル設定を適用中: ${CONFIG_FILE}"
     # コメント行・空行を除き .config に追記 (olddefconfig で整合性・補完)
     grep -v '^[[:space:]]*#' "${CONFIG_FILE}" | grep -v '^[[:space:]]*$' >> .config 2>/dev/null || true
-    ${_MAKE} ARCH=x86_64 olddefconfig >/dev/null 2>&1 || true
+    yes "" | ${_MAKE} ARCH=x86_64 LLVM=1 HOSTCFLAGS="${HOSTCFLAGS}" olddefconfig >/dev/null 2>&1 || true
     log ".config を作成しました: ${SRC_DIR}/.config"
 else
-    warn "${_MAKE} ARCH=x86_64 defconfig に失敗しました (ホストツールチェインの制約: macOS/Apple ld 等)"
+    warn "${_MAKE} ARCH=x86_64 LLVM=1 defconfig に失敗しました"
     warn "config/kernel-defconfig をベースに .config (ベース設定) を作成します。"
-    warn "Linux ビルドホストで 'make ARCH=x86_64 olddefconfig' を実行して完全な設定を補完してください。"
     {
-        echo "# SabakanOS: このホストでは defconfig をスキップしました (ツールチェイン制約)"
-        echo "# 本 .config は config/kernel-defconfig の抜粋です。Linux ビルドホストで"
-        echo "# 'make ARCH=x86_64 olddefconfig' を実行して完全な設定を補完してください。"
+        echo "# SabakanOS: このホストでは defconfig をスキップしました"
+        echo "# 本 .config は config/kernel-defconfig の抜粋です。"
         echo ""
         grep -v '^[[:space:]]*#' "${CONFIG_FILE}" | grep -v '^[[:space:]]*$'
     } > .config
     log ".config (ベース設定) を作成しました: ${SRC_DIR}/.config"
 fi
 
-# ---- 3. コンパイル (クロスコンパイラがある場合のみ) ----
-CROSS=""
-for cc in x86_64-linux-musl-gcc x86_64-linux-gnu-gcc x86_64-elf-gcc; do
-    if command -v "${cc}" >/dev/null 2>&1; then
-        # x86_64-linux-musl-gcc -> x86_64-linux-musl-
-        CROSS="${cc%-gcc}-"
-        break
-    fi
-done
-
-if [ -n "${CROSS}" ] && [ "${USE_DEFCONFIG}" = "1" ]; then
+# ---- 3. コンパイル (LLVM/clang+lld を使用、クロスコンパイラ不要) ----
+if [ "${USE_DEFCONFIG}" = "1" ]; then
     JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)"
-    log "クロスコンパイラ検出: ${CROSS}gcc  (並列数=${JOBS})"
-    log "カーネルコンパイルを開始します..."
-    ${_MAKE} ARCH=x86_64 CROSS_COMPILE="${CROSS}" -j"${JOBS}" bzImage
+    log "LLVM/clang+lld でカーネルコンパイルを開始します (並列数=${JOBS})..."
+    ${_MAKE} ARCH=x86_64 LLVM=1 HOSTCFLAGS="${HOSTCFLAGS}" -j"${JOBS}" bzImage
     log "カーネルイメージ出力: ${SRC_DIR}/arch/x86/boot/bzImage"
 else
-    warn "x86_64 Linux 向けクロスコンパイラが見つかりません (x86_64-linux-musl-gcc 等)"
-    warn "実際のコンパイルをスキップし、.config のみを生成しました。"
-    warn "Linux ビルドホスト、または Buildroot ツールチェインを導入した環境で"
+    warn "defconfig が失敗したため、カーネルコンパイルをスキップします。"
+    warn "Linux ビルドホスト、または macOS 上で LLVM=1 環境を整えて"
     warn "make build-kernel を再実行すると bzImage が出力されます。"
 fi
 

@@ -3,103 +3,103 @@
 [![CI](https://github.com/ryotagtagtag-wq/sabakan-os/actions/workflows/ci.yml/badge.svg)](https://github.com/ryotagtagtag-wq/sabakan-os/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-軽量・高速で、日本語環境を備えた Linux ベースのオペレーティングシステムです。
+A lightweight, fast Linux-based operating system with built-in Japanese language support.
 
-## 概要
+## Overview
 
-SabakanOS は「缶詰（コンパクトに収まって壊れない）」「鯖（サーバー／開発）」「サバい（潔いミニマル設計）」をコンセプトにした、開発者向けの軽量 Linux ディストリビューションです。
+SabakanOS is a lightweight Linux distribution for developers built on three ideas: "canned" (compact and hard to break), "mackerel" (server / development), and "sabai" (clean, minimal design).
 
-既存の軽量ディストリビューション（Alpine、Void、Arch など）は日本語デスクトップが標準ではありません。SabakanOS は次の 3 点を目指しています。
+Mainstream lightweight distributions (Alpine, Void, Arch and others) do not ship a Japanese desktop by default. SabakanOS targets the following three goals.
 
-- **軽量なベースシステム** — musl + BusyBox + OpenRC の最小構成
-- **日本語環境の標準搭載** — `ja_JP.UTF-8`、`Asia/Tokyo`、jp106 キーボード、Mozc、Noto CJK
-- **再現可能なビルド** — バージョンを固定した `make` ビルドと CI による常時検証
+- **A lightweight base system** — a minimal musl + BusyBox + OpenRC configuration
+- **Japanese support as standard** — `ja_JP.UTF-8`, `Asia/Tokyo`, jp106 keyboard, Mozc, Noto CJK
+- **Reproducible builds** — pinned versions, a `make`-driven build, and continuous verification in CI
 
-構成の要点:
+Key components:
 
-| 層 | 採用 |
-|----|------|
-| カーネル | Linux 6.18.63（kernel.org LTS、x86_64） |
-| C ライブラリ | musl |
-| 基本ユーティリティ / シェル | BusyBox（`/bin/sh` は ash） |
+| Layer | Choice |
+|-------|--------|
+| Kernel | Linux 6.18.63 (kernel.org LTS, x86_64) |
+| C library | musl |
+| Base utilities / shell | BusyBox (`/bin/sh` is ash) |
 | Init | OpenRC |
-| パッケージ管理 | apk（Alpine 互換、APKBUILD 形式） |
-| ブートローダー | Limine（BIOS / UEFI） |
-| ルートFS生成 | Buildroot 2026.08.1（利用できない場合は雛形を生成） |
+| Package management | apk (Alpine compatible, APKBUILD format) |
+| Bootloader | Limine (BIOS / UEFI) |
+| Root filesystem generation | Buildroot 2026.08.1 (falls back to a skeleton when unavailable) |
 
-## 現在のステータス
+## Current Status
 
-**開発初期（v0.1.0-dev）** です。レーンA〜E が並行して実装を進めています。
+**Early development (v0.1.0-dev).** Lanes A through E are implementing in parallel.
 
-| 機能 | 状態 | 実体 |
-|------|------|------|
-| カーネルビルド | 実装済み | `make build-kernel` → `build/linux-6.18.63/` |
-| ルートFS生成 | 実装済み（雛形） | `make build-rootfs` → `rootfs/` |
-| ISO 生成 | 実装済み | `scripts/build-iso.sh` → `build/sabakanos.iso` |
-| QEMU 起動確認 | 実装済み | `scripts/run-qemu.sh` |
-| 日本語環境（ロケール・IME・フォント） | 設計済み・未同梱 | [`docs/requirements.md`](docs/requirements.md) FR-020〜FR-024 |
-| インストーラ（`sabakan-install`） | 未実装 | `dd` による書き込みで代替 |
-| `make iso` / `make install` / `make test` | 未実装 | 上記スクリプトを直接実行する |
+| Feature | Status | Where it lives |
+|---------|--------|----------------|
+| Kernel build | Implemented | `make build-kernel` → `build/linux-6.18.63/` |
+| Root filesystem generation | Implemented (skeleton) | `make build-rootfs` → `rootfs/` |
+| ISO generation | Implemented | `scripts/build-iso.sh` → `build/sabakanos.iso` |
+| QEMU boot check | Implemented | `scripts/run-qemu.sh` |
+| Japanese environment (locale, IME, fonts) | Designed, not bundled | [`docs/requirements.md`](docs/requirements.md) FR-020 to FR-024 |
+| Installer (`sabakan-install`) | Not implemented | Writing the image with `dd` instead |
+| `make iso` / `make install` / `make test` | Not implemented | Run the scripts above directly |
 
-> 進捗の詳細と実装レーン間の受け渡し条件は [`docs/requirements.md`](docs/requirements.md) の第 6 章を参照してください。
+> For detailed progress and the hand-off conditions between implementation lanes, see chapter 6 of [`docs/requirements.md`](docs/requirements.md).
 
-## 動作要件
+## Requirements
 
-### ビルドホスト
+### Build Host
 
-| 項目 | 要件 |
-|------|------|
-| OS | Linux x86_64（Ubuntu 24.04 / Debian 12 推奨）、または macOS |
-| CPU | 2 コア以上（4 コア以上推奨） |
-| メモリ | 4GB 以上（8GB 推奨） |
-| ディスク | 空き 10GB 以上（カーネルソースとビルド中間物を含む） |
-| ツール | GNU Make 4.0 以上（macOS では `gmake`）、`curl`、`xz` |
+| Item | Requirement |
+|------|-------------|
+| OS | Linux x86_64 (Ubuntu 24.04 / Debian 12 recommended), or macOS |
+| CPU | 2 cores or more (4 cores or more recommended) |
+| Memory | 4GB or more (8GB recommended) |
+| Disk | 10GB or more free (including kernel sources and build intermediates) |
+| Tools | GNU Make 4.0 or later (`gmake` on macOS), `curl`, `xz` |
 
-macOS では標準の `make`（3.81）がカーネルビルドに不足するため、`brew install make` で入る `gmake` を使用します（`scripts/build-kernel.sh` が自動で優先します）。x86_64 Linux 向けクロスコンパイラがない場合、カーネルのコンパイルはスキップされ、`.config` の準備までで正常終了します。
+On macOS the stock `make` (3.81) is not enough for the kernel build, so use `gmake` from `brew install make` (`scripts/build-kernel.sh` prefers it automatically). Without an x86_64 Linux cross compiler, kernel compilation is skipped and the build exits successfully after preparing `.config`.
 
-### ターゲット
+### Target
 
-| 項目 | 要件 |
-|------|------|
-| アーキテクチャ | x86_64（BIOS / UEFI） |
-| メモリ | 512MB 以上 |
-| ストレージ | 4GB 以上（USB メモリは 2GB 以上） |
+| Item | Requirement |
+|------|-------------|
+| Architecture | x86_64 (BIOS / UEFI) |
+| Memory | 512MB or more |
+| Storage | 4GB or more (2GB or more for USB media) |
 
-## クイックスタート
+## Quick Start
 
 ```bash
 git clone https://github.com/ryotagtagtag-wq/sabakan-os.git
 cd sabakan-os
 
-# 1. ビルド依存の導入（Ubuntu / Debian の場合）
+# 1. Install build dependencies (Ubuntu / Debian)
 sudo apt-get update
 sudo apt-get install -y build-essential bc bison flex libelf-dev libssl-dev \
   cpio kmod rsync curl wget xz-utils git make zstd \
   xorriso mtools dosfstools
 
-# 2. カーネルとルートFSをビルド
+# 2. Build the kernel and the root filesystem
 make build-kernel
 make build-rootfs
 
-# 3. ISO を生成（カーネルと Limine を所定の場所に配置してから）
+# 3. Generate the ISO (after staging the kernel and Limine in place)
 mkdir -p build/kernel
 cp build/linux-6.18.63/arch/x86/boot/bzImage build/kernel
 ./scripts/build-iso.sh
 
-# 4. QEMU で起動確認
+# 4. Verify the boot in QEMU
 ./scripts/run-qemu.sh
 ```
 
-## ビルド手順
+## Build Instructions
 
-### 1. リポジトリの取得
+### 1. Get the Repository
 
 ```bash
 git clone https://github.com/ryotagtagtag-wq/sabakan-os.git
 cd sabakan-os
 ```
 
-### 2. ビルド依存の導入
+### 2. Install Build Dependencies
 
 **Ubuntu / Debian**
 
@@ -129,157 +129,157 @@ sudo pacman -S --needed base-devel bc bison flex libelf openssl cpio rsync \
 
 ```bash
 brew install make xz xorriso
-# Limine は手動で入手する（後述）
+# Limine must be obtained manually (see below)
 ```
 
-### 3. ビルドターゲット
+### 3. Build Targets
 
-| ターゲット | 状態 | 説明 | 出力先 |
-|------------|------|------|--------|
-| `make help` | 実装済み | 利用可能なターゲットの一覧を表示 | — |
-| `make build-kernel` | 実装済み | Linux 6.18.63 を取得し、`config/kernel-defconfig` を適用してビルド | `build/linux-6.18.63/arch/x86/boot/bzImage` |
-| `make build-rootfs` | 実装済み | Buildroot defconfig または雛形からルートFSを生成 | `rootfs/` |
-| `make clean` | 実装済み | `build/`、`rootfs/`、`tool/` を削除 | — |
-| `make iso` | 未実装 | 現状は `./scripts/build-iso.sh` を直接実行 | `build/sabakanos.iso` |
-| `make test` | 未実装 | 現状は `./scripts/run-qemu.sh` を直接実行 | — |
-| `make install` | 未実装 | 現状は `dd` で ISO を書き込む（後述） | — |
-| `make source-bundle` | 未実装 | 配布用ソース一式の生成（仕様は [`docs/source-flow.md`](docs/source-flow.md)） | `build/source/` |
+| Target | Status | Description | Output |
+|--------|--------|-------------|--------|
+| `make help` | Implemented | List the available targets | — |
+| `make build-kernel` | Implemented | Fetch Linux 6.18.63, apply `config/kernel-defconfig`, and build | `build/linux-6.18.63/arch/x86/boot/bzImage` |
+| `make build-rootfs` | Implemented | Generate the root filesystem from the Buildroot defconfig or the skeleton | `rootfs/` |
+| `make clean` | Implemented | Remove `build/`, `rootfs/` and `tool/` | — |
+| `make iso` | Not implemented | Run `./scripts/build-iso.sh` directly for now | `build/sabakanos.iso` |
+| `make test` | Not implemented | Run `./scripts/run-qemu.sh` directly for now | — |
+| `make install` | Not implemented | Write the ISO with `dd` for now (see below) | — |
+| `make source-bundle` | Not implemented | Generate the distributable source bundle (specified in [`docs/source-flow.md`](docs/source-flow.md)) | `build/source/` |
 
-> `make all` は `help` の別名です（ビルドは実行しません）。
+> `make all` is an alias for `help` (it does not build anything).
 
-### 4. カーネルのビルド
+### 4. Building the Kernel
 
 ```bash
 make build-kernel
 ```
 
-`scripts/build-kernel.sh` が次の処理を行います。
+`scripts/build-kernel.sh` performs the following steps.
 
-1. kernel.org から `linux-6.18.63.tar.xz` を取得（`build/` に展開）
-2. `config/kernel-defconfig` を `.config` に適用（`olddefconfig`）
-3. `make bzImage` でコンパイル
-4. `build/linux-6.18.63/arch/x86/boot/bzImage` を出力
+1. Fetch `linux-6.18.63.tar.xz` from kernel.org (unpacked into `build/`)
+2. Apply `config/kernel-defconfig` to `.config` (`olddefconfig`)
+3. Compile with `make bzImage`
+4. Emit `build/linux-6.18.63/arch/x86/boot/bzImage`
 
-所要時間の目安は 4 コアで 10〜20 分です。クロスコンパイラがない環境では、3 の手順まで実行して正常終了します。
+Expect 10 to 20 minutes on 4 cores. On a host without a cross compiler, the build stops after step 3 and exits successfully.
 
-### 5. ルートファイルシステムの生成
+### 5. Generating the Root Filesystem
 
 ```bash
 make build-rootfs
 ```
 
-`scripts/build-rootfs.sh` は Buildroot（musl / x86_64）の defconfig を適用できる場合はそれを用い、適用できない場合は独自にベース構造を生成します。どちらの場合も `rootfs/` には次の内容が揃います。
+`scripts/build-rootfs.sh` uses the Buildroot (musl / x86_64) defconfig when it can apply it, and otherwise generates a base structure of its own. Either way, `rootfs/` ends up with the following contents.
 
-| パス | 内容 |
-|------|------|
-| `rootfs/init` | PID 1 となる初期プロセス |
-| `rootfs/bin/sh` | `busybox` へのシンボリックリンク |
-| `rootfs/etc/passwd`、`group`、`shadow` | ユーザー情報の雛形 |
-| `rootfs/etc/inittab`、`init.d/rcS` | 起動スクリプト |
+| Path | Contents |
+|------|----------|
+| `rootfs/init` | The initial process that becomes PID 1 |
+| `rootfs/bin/sh` | Symbolic link to `busybox` |
+| `rootfs/etc/passwd`, `group`, `shadow` | Skeleton user information |
+| `rootfs/etc/inittab`, `init.d/rcS` | Boot scripts |
 | `rootfs/etc/hostname` | `sabakan` |
-| `rootfs/{bin,sbin,etc,usr,var,proc,sys,dev,boot,home,root,tmp,opt}` | ディレクトリ構造 |
+| `rootfs/{bin,sbin,etc,usr,var,proc,sys,dev,boot,home,root,tmp,opt}` | Directory structure |
 
-`busybox` 本体は Buildroot または別途のパッケージ導入で配置します。
+The `busybox` binary itself is installed by Buildroot or by a separate package installation.
 
-### 6. ISO イメージの生成
+### 6. Generating the ISO Image
 
 ```bash
 ./scripts/build-iso.sh
 ```
 
-ISO 生成には次の入力が必要です。スクリプトは所定の候補パスを自動で探します。
+ISO generation needs the following inputs. The script searches the candidate paths automatically.
 
-| 入力 | 候補パス | 補足 |
-|------|----------|------|
-| カーネル | `build/kernel`、`build/bzImage`、`rootfs/boot/kernel` | `make build-kernel` の出力は `build/linux-6.18.63/arch/x86/boot/bzImage` のため、`build/kernel` へコピーする |
-| initramfs | `build/initramfs.img`、`build/initrd.img` | 任意。なくても生成できる |
-| Limine 本体 | `build/limine/`、`boot/limine/`、`third_party/limine/`、`$LIMINE_DIR` | `limine-bios.sys` と `limine-efi.sys` が必要 |
-| 設定 | `boot/limine.cfg` | ブートエントリ定義 |
-| ツール | `xorriso` または `grub-mkrescue` | ISO の生成に使用 |
+| Input | Candidate paths | Notes |
+|-------|-----------------|-------|
+| Kernel | `build/kernel`, `build/bzImage`, `rootfs/boot/kernel` | `make build-kernel` writes `build/linux-6.18.63/arch/x86/boot/bzImage`, so copy it to `build/kernel` |
+| initramfs | `build/initramfs.img`, `build/initrd.img` | Optional. The ISO can be generated without it |
+| Limine binaries | `build/limine/`, `boot/limine/`, `third_party/limine/`, `$LIMINE_DIR` | `limine-bios.sys` and `limine-efi.sys` are required |
+| Configuration | `boot/limine.cfg` | Boot entry definitions |
+| Tool | `xorriso` or `grub-mkrescue` | Used to generate the ISO |
 
-Limine は [上流のリリース](https://github.com/limine-bootloader/limine/releases) から取得し、次のように配置します。
+Obtain Limine from the [upstream releases](https://github.com/limine-bootloader/limine/releases) and stage it as follows.
 
 ```bash
 mkdir -p build/limine
-# 展開したアーカイブから limine-bios.sys と limine-efi.sys を配置する
+# Place limine-bios.sys and limine-efi.sys from the extracted archive
 cp /path/to/limine/limine-bios.sys /path/to/limine/limine-efi.sys build/limine/
 ```
 
-生成物は `build/sabakanos.iso` です。BIOS / UEFI の両方で起動できるハイブリッド構成になります。
+The output is `build/sabakanos.iso`, a hybrid image that boots on both BIOS and UEFI.
 
-### 7. QEMU での起動確認
+### 7. Verifying the Boot in QEMU
 
 ```bash
 ./scripts/run-qemu.sh
-# オプションを変える場合
+# To change the options
 QEMU_OPTS="-m 4G" ./scripts/run-qemu.sh
 ```
 
-シリアルコンソールに起動ログが流れ、`SabakanOS 起動完了` の後にシェルプロンプトが表示されれば成功です。
+Boot logs stream to the serial console. Success means a shell prompt appears after the boot-complete message that `rootfs/etc/init.d/rcS` prints (`SabakanOS 起動完了`, "SabakanOS boot complete").
 
-## インストール手順
+## Installation
 
-### USB メモリへ書き込む
+### Writing to a USB Drive
 
 ```bash
-lsblk                                  # 書き込み先のデバイス名を確認する
+lsblk                                  # Confirm the device name to write to
 sudo dd if=build/sabakanos.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
-GUI ツールを使う場合は balenaEtcher、Rufus（Windows）、Ventoy でも書き込めます。
+GUI tools such as balenaEtcher, Rufus (Windows) or Ventoy work as well.
 
-> **警告**: `dd` は指定したデバイスの内容を完全に上書きします。`of=` には必ず USB メモリを指定し、`lsblk` で確認してから実行してください。
+> **Warning**: `dd` overwrites the entire contents of the device you name. Always point `of=` at the USB drive, and confirm the device with `lsblk` before running the command.
 
-### 起動する
+### Booting
 
-1. USB メモリを挿して電源を入れる。
-2. UEFI 環境では起動メニューから USB を選択する（BIOS 環境では自動的に起動する）。
-3. Limine のメニューが表示され、既定エントリが 2 秒で起動する。
+1. Insert the USB drive and power on the machine.
+2. On UEFI systems, pick the USB drive from the boot menu (BIOS systems boot from it automatically).
+3. The Limine menu appears and the default entry boots after 2 seconds.
 
-起動すると `/init` が PID 1 として動作し、そのままシェル（`/bin/sh`）が起動します。ログインプロンプトは表示されません。`root` のパスワードはロック（`*`）されているため、必要に応じて次を実行して設定してください。
+On boot, `/init` runs as PID 1 and starts a shell (`/bin/sh`) directly. No login prompt is shown. The `root` password is locked (`*`), so set one if you need it.
 
 ```sh
 passwd root
 ```
 
-### ディスクへインストールする
+### Installing to a Disk
 
-インストーラ（`sabakan-install`）は未実装です。現時点では Live 起動した環境から手動で展開します。
+The installer (`sabakan-install`) is not implemented. For now, deploy manually from a live boot.
 
 ```bash
-# インストール先を用意する（例: /dev/sda1 を /mnt にマウント）
+# Prepare the installation target (example: mount /dev/sda1 on /mnt)
 mount /dev/sda1 /mnt
 
-# ルートFSをコピーする
+# Copy the root filesystem
 cp -a /run/rootfs/. /mnt/
 
-# ブートローダーとカーネルを配置する（boot/limine.cfg を参照）
+# Place the bootloader and the kernel (see boot/limine.cfg)
 mkdir -p /mnt/boot
 cp /boot/kernel /mnt/boot/
 
-# アンマウントして再起動する
+# Unmount and reboot
 sync
 umount /mnt
 reboot
 ```
 
-手順の詳細と受け入れ条件は [`docs/requirements.md`](docs/requirements.md) の FR-014 を参照してください。
+For the detailed procedure and acceptance criteria, see FR-014 in [`docs/requirements.md`](docs/requirements.md).
 
-## 日本語環境設定
+## Japanese Environment Setup
 
-日本語環境（ロケール、IME、フォント）は現時点では ISO に同梱されていません。以下は手動で設定する場合の手順です。パッケージ名は採用している apk のものに読み替えてください。
+The Japanese environment (locale, IME, fonts) is not bundled in the ISO at this time. The steps below describe a manual setup. Substitute the package names used by the apk repository you are running.
 
-### ロケール
+### Locale
 
 ```bash
-# ロケール定義の導入（Alpine 系の場合）
+# Install the locale definitions (Alpine based systems)
 apk add musl-locales musl-locales-lang
 
-# ja_JP.UTF-8 を有効化
+# Enable ja_JP.UTF-8
 echo 'ja_JP.UTF-8 UTF-8' >> /etc/locale.gen
 locale-gen 2>/dev/null || true
 
-# システム全体の既定ロケール
+# System-wide default locale
 cat > /etc/locale.conf <<'EOF'
 LANG=ja_JP.UTF-8
 LC_TIME=ja_JP.UTF-8
@@ -290,7 +290,7 @@ LC_MEASUREMENT=ja_JP.UTF-8
 EOF
 ```
 
-### タイムゾーン
+### Time Zone
 
 ```bash
 apk add tzdata
@@ -298,7 +298,7 @@ ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
 echo 'Asia/Tokyo' > /etc/timezone
 ```
 
-### キーボードレイアウト（jp106）
+### Keyboard Layout (jp106)
 
 ```bash
 cat > /etc/vconsole.conf <<'EOF'
@@ -306,14 +306,14 @@ KEYMAP=jp106
 EOF
 ```
 
-`busybox loadkmap` を使う場合は、jp106 のキーマップを `/etc/keymaps/jp106.map` に配置します。
+When using `busybox loadkmap`, place the jp106 keymap at `/etc/keymaps/jp106.map`.
 
-### 日本語入力（Mozc）
+### Japanese Input (Mozc)
 
 ```bash
 apk add ibus ibus-mozc font-noto-cjk
 
-# X11 セッションの場合
+# For X11 sessions
 cat >> ~/.xprofile <<'EOF'
 export GTK_IM_MODULE=ibus
 export QT_IM_MODULE=ibus
@@ -321,7 +321,7 @@ export XMODIFIERS=@im=ibus
 ibus-daemon -drx
 EOF
 
-# Wayland セッションの場合
+# For Wayland sessions
 mkdir -p ~/.config/environment.d
 cat > ~/.config/environment.d/ibus.conf <<'EOF'
 GTK_IM_MODULE=ibus
@@ -330,9 +330,9 @@ XMODIFIERS=@im=ibus
 EOF
 ```
 
-Fcitx5 を使う場合は `ibus` を `fcitx5 fcitx5-mozc` に、環境変数を `fcitx` に読み替えます。
+To use Fcitx5, replace `ibus` with `fcitx5 fcitx5-mozc` and set the environment variables to `fcitx`.
 
-### 日本語フォント
+### Japanese Fonts
 
 ```bash
 apk add font-noto-cjk font-noto-cjk-extra
@@ -340,64 +340,64 @@ fc-cache -fv
 fc-match "Noto Sans CJK JP"
 ```
 
-等幅フォントが必要な場合は Cica や Ricty Diminished を追加します。フォントの同梱・改変を行う場合は SIL OFL 1.1 の Reserved Font Name の条件に注意してください（[`docs/license.md`](docs/license.md)）。
+Add Cica or Ricty Diminished if you need monospaced fonts. If you bundle or modify fonts, mind the Reserved Font Name condition of SIL OFL 1.1 ([`docs/license.md`](docs/license.md)).
 
-### 設定の確認
+### Verifying the Configuration
 
 ```bash
-locale                    # LANG=ja_JP.UTF-8 になっているか
-date                      # JST で表示されるか
-cat /etc/vconsole.conf    # KEYMAP=jp106 か
-echo "日本語入力のテスト"  # 変換できるか
+locale                    # Is LANG=ja_JP.UTF-8?
+date                      # Is the time shown in JST?
+cat /etc/vconsole.conf    # Is KEYMAP=jp106?
+echo "日本語入力のテスト"  # Can you convert it?
 ```
 
-## ディレクトリ構成
+## Directory Layout
 
 ```text
 sabakan-os/
-├── README.md                  # 本ファイル
-├── LICENSE                    # プロジェクト本体のライセンス（MIT）
-├── Makefile                   # ビルドのエントリポイント（レーンA）
-├── .github/workflows/         # GitHub Actions CI / リリース（レーンE）
+├── README.md                  # This file
+├── LICENSE                    # License of the project itself (MIT)
+├── Makefile                   # Build entry point (lane A)
+├── .github/workflows/         # GitHub Actions CI / release (lane E)
 ├── boot/
-│   └── limine.cfg             # Limine ブートローダ設定（レーンB）
+│   └── limine.cfg             # Limine bootloader configuration (lane B)
 ├── config/
-│   ├── buildroot-defconfig    # Buildroot 設定（レーンA）
-│   ├── kernel-defconfig       # カーネル設定の差分（レーンA）
-│   └── packages.txt           # ベースパッケージ一覧（レーンC）
+│   ├── buildroot-defconfig    # Buildroot configuration (lane A)
+│   ├── kernel-defconfig       # Kernel configuration fragment (lane A)
+│   └── packages.txt           # Base package list (lane C)
 ├── scripts/
-│   ├── build-kernel.sh        # カーネルビルド（レーンA）
-│   ├── build-rootfs.sh        # ルートFS生成（レーンA）
-│   ├── build-iso.sh           # ISO 生成（レーンB）
-│   └── run-qemu.sh            # QEMU 起動（レーンB）
+│   ├── build-kernel.sh        # Kernel build (lane A)
+│   ├── build-rootfs.sh        # Root filesystem generation (lane A)
+│   ├── build-iso.sh           # ISO generation (lane B)
+│   └── run-qemu.sh            # QEMU boot (lane B)
 ├── packages/
-│   ├── APKBUILD.example       # APKBUILD のひな形（レーンC）
-│   └── sabakan-base/APKBUILD  # メタパッケージ（レーンC）
-├── docs/                      # 要件定義・ライセンス方針・ソース提供フロー（レーンE）
+│   ├── APKBUILD.example       # APKBUILD template (lane C)
+│   └── sabakan-base/APKBUILD  # Meta package (lane C)
+├── docs/                      # Requirements, license policy, source provision flow (lane E)
 │   ├── requirements.md
 │   ├── license.md
 │   ├── source-flow.md
 │   └── source-manifest.example.tsv
 ├── iso/
-│   └── COPYING                # 同梱 OSS のライセンス一覧とポインタ（レーンE）
-├── build/                     # ビルド中間物・ISO（Git 管理外）
-└── rootfs/                    # ルートファイルシステム（Git 管理外）
+│   └── COPYING                # License list and pointers for bundled OSS (lane E)
+├── build/                     # Build intermediates and ISO (not tracked by Git)
+└── rootfs/                    # Root filesystem (not tracked by Git)
 ```
 
-`build/` と `rootfs/` はビルド成果物のため Git 管理対象外です。`iso/COPYING` のみ例外的に追跡されます。
+`build/` and `rootfs/` are build artifacts and are therefore excluded from Git. Only `iso/COPYING` is tracked as an exception.
 
 ## CI
 
-GitHub Actions で次の検証を自動実行します。
+GitHub Actions runs the following checks automatically.
 
-| ワークフロー | トリガー | 内容 |
-|--------------|----------|------|
-| `.github/workflows/ci.yml` | push / pull request / 手動 | ドキュメント検証、ライセンス検証、`make build-kernel`、`make build-rootfs`、ISO ビルド（参考） |
-| `.github/workflows/release.yml` | `v*.*.*` タグ push | CI 実行、ISO とソースバンドルの添付、Release 作成 |
+| Workflow | Trigger | Contents |
+|----------|---------|----------|
+| `.github/workflows/ci.yml` | push / pull request / manual | Documentation checks, license checks, `make build-kernel`, `make build-rootfs`, ISO build (informational) |
+| `.github/workflows/release.yml` | `v*.*.*` tag push | Run CI, attach the ISO and the source bundle, create the Release |
 
-ISO ビルドジョブは、カーネル成果物の配置や Limine の入手がレーン間で未接続のため、現時点では**参考（失敗しても CI 全体は赤にしない）**として実行します。接続が完了した時点で必須ジョブに昇格させます。
+The ISO build job currently runs as **informational (a failure does not turn the whole CI red)**, because kernel artifact hand-off and Limine acquisition are not yet wired between lanes. It becomes a required job once that wiring is complete.
 
-ローカルで同じ検証を行う場合:
+To run the same checks locally:
 
 ```bash
 make build-kernel
@@ -405,53 +405,58 @@ make build-rootfs
 test -f iso/COPYING && test -f docs/requirements.md && test -f docs/license.md
 ```
 
-## トラブルシューティング
+## Troubleshooting
 
-| 症状 | 対処 |
-|------|------|
-| `make: *** No rule to make target 'iso'` | `make iso` は未実装です。`./scripts/build-iso.sh` を直接実行してください |
-| kernel の Makefile が `*** missing separator` で落ちる | macOS の `make` 3.81 が原因です。`brew install make` で `gmake` を導入してください |
-| カーネルビルドが「コンパイルをスキップ」で終わる | x86_64 Linux 向けクロスコンパイラがありません。Linux ホストまたは Docker 内で実行してください |
-| `bc: command not found` / `flex: not found` | カーネルビルド依存が不足しています。`bc`、`bison`、`flex`、`libelf-dev`、`libssl-dev` を導入してください |
-| Buildroot のダウンロードに失敗する | ネットワーク制限時は自動的に雛形生成へ切り替わります。ログの `[警告]` を確認してください |
-| `ISO 作成ツールが見つかりません` | `xorriso` を導入してください（macOS: `brew install xorriso`） |
-| `Limine ブートローダ本体が見つかりません` | `limine-bios.sys` と `limine-efi.sys` を `build/limine/` に配置するか、`LIMINE_DIR` を指定してください |
-| `カーネルイメージが見つかりません` | `cp build/linux-6.18.63/arch/x86/boot/bzImage build/kernel` を実行してください |
-| `rootfs/bin/sh` が壊れたリンクになる | `busybox` 本体が未配置です。Buildroot のビルド完了後、または `busybox` を `rootfs/bin/` に配置してください |
-| ISO から起動してもシェルが出ない | `boot/limine.cfg` の `KERNEL_PATH` / `CMDLINE` と、ステージングされた `boot/kernel` を確認してください |
+| Symptom | Action |
+|---------|--------|
+| `make: *** No rule to make target 'iso'` | `make iso` is not implemented. Run `./scripts/build-iso.sh` directly |
+| The kernel Makefile fails with `*** missing separator` | Caused by macOS `make` 3.81. Install `gmake` with `brew install make` |
+| The kernel build ends with a "skipping compilation" message | No x86_64 Linux cross compiler is available. Run on a Linux host or inside Docker |
+| `bc: command not found` / `flex: not found` | Kernel build dependencies are missing. Install `bc`, `bison`, `flex`, `libelf-dev` and `libssl-dev` |
+| The Buildroot download fails | With restricted network access the script switches to skeleton generation automatically. Check the `[警告]` (warning) lines in the log |
+| `ISO 作成ツールが見つかりません` (no ISO creation tool found) | Install `xorriso` (macOS: `brew install xorriso`) |
+| `Limine ブートローダ本体が見つかりません` (Limine binaries not found) | Place `limine-bios.sys` and `limine-efi.sys` in `build/limine/`, or set `LIMINE_DIR` |
+| `カーネルイメージが見つかりません` (kernel image not found) | Run `cp build/linux-6.18.63/arch/x86/boot/bzImage build/kernel` |
+| `rootfs/bin/sh` is a broken link | The `busybox` binary is missing. Wait for the Buildroot build to finish, or place `busybox` in `rootfs/bin/` |
+| No shell appears after booting from the ISO | Check `KERNEL_PATH` and `CMDLINE` in `boot/limine.cfg`, and the staged `boot/kernel` |
 
-## 開発への参加
+## Contributing
 
-本リポジトリはレーン分割で並行開発しています。
+This repository is developed in parallel across lanes.
 
-| レーン | 担当領域 | 主な所有ファイル |
-|--------|----------|------------------|
-| A | ビルドシステム、カーネル、ルートFS | `Makefile`、`scripts/build-kernel.sh`、`scripts/build-rootfs.sh`、`config/buildroot-defconfig`、`config/kernel-defconfig` |
-| B | ブート、ISO、QEMU | `boot/`、`scripts/build-iso.sh`、`scripts/run-qemu.sh` |
-| C | パッケージ、日本語環境 | `packages/`、`config/packages.txt` |
-| D | 追加実装（インストーラ、システム設定など） | 担当領域のファイル |
-| E | ドキュメント、CI、リリース、ライセンス遵守 | `README.md`、`docs/`、`.github/workflows/`、`iso/COPYING` |
+| Lane | Area | Main files owned |
+|------|------|------------------|
+| A | Build system, kernel, root filesystem | `Makefile`, `scripts/build-kernel.sh`, `scripts/build-rootfs.sh`, `config/buildroot-defconfig`, `config/kernel-defconfig` |
+| B | Boot, ISO, QEMU | `boot/`, `scripts/build-iso.sh`, `scripts/run-qemu.sh` |
+| C | Packages, Japanese environment | `packages/`, `config/packages.txt` |
+| D | Additional implementation (installer, system configuration and so on) | Files in the assigned area |
+| E | Documentation, CI, releases, license compliance | `README.md`, `docs/`, `.github/workflows/`, `iso/COPYING` |
 
-コントリビュート時の原則:
+Ground rules for contributions:
 
-- 秘密情報（API キー、トークン、証明書）をコミットしない
-- 新しい OSS を同梱する場合は `iso/COPYING` と [`docs/license.md`](docs/license.md) を同時に更新する
-- `make build-kernel` と `make build-rootfs` が通る状態を保つ
+- Do not commit secrets (API keys, tokens, certificates)
+- When you bundle new OSS, update `iso/COPYING` and [`docs/license.md`](docs/license.md) in the same change
+- Keep `make build-kernel` and `make build-rootfs` working
 
-## ライセンス
+## License
 
-プロジェクト本体（ビルドスクリプト、設定、ドキュメント）は [MIT License](LICENSE) の下で公開されています。
+The SabakanOS project itself — its build scripts, configuration files, and documentation — is released under the [MIT License](LICENSE).
 
-生成される ISO イメージには、Linux カーネル（GPL-2.0）、BusyBox（GPL-2.0）、OpenRC（BSD-2-Clause）、musl（MIT）、Limine（BSD-2-Clause）などの OSS が含まれます。それぞれの著作権表示とライセンス全文は ISO 内の `/usr/share/licenses/` に収録し、一覧は [`iso/COPYING`](iso/COPYING) に記載しています。
+Bundled third-party software keeps its own license. The generated ISO image contains OSS such as the Linux kernel (GPL-2.0-only), BusyBox (GPL-2.0-only), apk-tools (GPL-2.0-only), OpenRC (BSD-2-Clause), musl (MIT) and Limine (BSD-2-Clause). Each copyright notice and full license text is installed under `/usr/share/licenses/` on the ISO, and [`iso/COPYING`](iso/COPYING) lists them all.
 
-GPL / LGPL 対象コンポーネントについては、対応する完全なソースコードを提供します。取得方法と運用は [`docs/source-flow.md`](docs/source-flow.md) を参照してください。
+The MIT license of this repository does not relicense the bundled OSS. The repository and its ISO image are two different distribution channels:
 
-## ドキュメント
+- **The repository** is MIT-licensed source code. Cloning, reading and modifying it does not involve any GPL or LGPL obligation.
+- **The ISO image** is a binary distribution of multiple licenses. Distributing it — by download, on physical media, or by any other means — triggers the GPL and LGPL source provision obligations for every covered component (the Linux kernel, BusyBox, apk-tools, alpine-baselayout and others).
 
-| ドキュメント | 内容 |
-|--------------|------|
-| [`docs/requirements.md`](docs/requirements.md) | 機能要件、非機能要件、マイルストーン、レーン間インタフェース |
-| [`docs/license.md`](docs/license.md) | 同梱 OSS のライセンス一覧、配布時の義務、遵守チェックリスト |
-| [`docs/source-flow.md`](docs/source-flow.md) | 配布時のソース提供フロー、マニフェスト運用、リリース手順 |
-| [`docs/source-manifest.example.tsv`](docs/source-manifest.example.tsv) | ソースマニフェストのテンプレート |
-| [`iso/COPYING`](iso/COPYING) | ISO に同梱される OSS のライセンス一覧と個別ファイルへのポインタ |
+Whenever an ISO is distributed, the complete corresponding source code must be made available at the same time. The release workflow attaches a source bundle alongside the ISO; the available methods, the manifest format and the pre-release checklist are described in [`docs/source-flow.md`](docs/source-flow.md), and the obligations per license are listed in [`docs/license.md`](docs/license.md).
+
+## Documentation
+
+| Document | Contents |
+|----------|----------|
+| [`docs/requirements.md`](docs/requirements.md) | Functional and non-functional requirements, milestones, inter-lane interfaces |
+| [`docs/license.md`](docs/license.md) | License inventory of bundled OSS, distribution obligations, compliance checklist |
+| [`docs/source-flow.md`](docs/source-flow.md) | Source provision flow for distribution, manifest operations, release procedure |
+| [`docs/source-manifest.example.tsv`](docs/source-manifest.example.tsv) | Template for the source manifest |
+| [`iso/COPYING`](iso/COPYING) | License list of the OSS bundled in the ISO, with pointers to individual license files |

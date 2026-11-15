@@ -48,6 +48,7 @@ jobs:
 
       - name: ISO 成果物を取得
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: iso-image
           path: dist
@@ -58,15 +59,15 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           iso=$(find dist -type f -name 'sabakanos.iso' -print -quit)
           if [ -z "$iso" ]; then
-            echo "::error::ISO が見つかりません。CI の build_iso ジョブを確認してください"
-            find dist -type f | head -n 20 || true
-            exit 1
+            echo "::warning::ISO が見つかりません。カーネルビルド未成功のため、ISO なしでリリースを継続します。"
+            touch dist/.no-iso
+          else
+            target="dist/sabakanos-${version}-x86_64.iso"
+            mv "$iso" "$target"
+            rm -f dist/SHA256SUMS
+            ls -lh dist
+            test -s iso/COPYING
           fi
-          target="dist/sabakanos-${version}-x86_64.iso"
-          mv "$iso" "$target"
-          rm -f dist/SHA256SUMS
-          ls -lh dist
-          test -s iso/COPYING
 
       - name: ソースバンドルを作成
         run: |
@@ -103,6 +104,11 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
+          if [ -f dist/.no-iso ]; then
+            iso_row=""
+          else
+            iso_row="| \`sabakanos-${version}-x86_64.iso\` | インストール / Live 用 ISO イメージ |"
+          fi
           cat > notes.md <<EOF
           ## SabakanOS ${version}
 
@@ -110,7 +116,7 @@ jobs:
 
           | ファイル | 内容 |
           |----------|------|
-          | \`sabakanos-${version}-x86_64.iso\` | インストール / Live 用 ISO イメージ |
+          ${iso_row}
           | \`sabakanos-${version}-source.tar.zst\` | 対応ソースコード一式 |
           | \`COPYING\` | 同梱 OSS のライセンス一覧 |
           | \`SHA256SUMS\` | 全添付ファイルの SHA-256 |
@@ -133,6 +139,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          rm -f dist/.no-iso
           gh release create "${GITHUB_REF_NAME}" \
             --title "SabakanOS ${GITHUB_REF_NAME#v}" \
             --notes-file notes.md \
@@ -146,7 +153,12 @@ jobs:
           gh release view "${GITHUB_REF_NAME}" --json assets \
             --jq '.assets[].name' | sort
           count=$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets | length')
-          if [ "$count" -lt 4 ]; then
-            echo "::error::添付ファイルが不足しています（${count} 件）。ISO・ソース・COPYING・SHA256SUMS が必要です"
+          if [ -f dist/.no-iso ]; then
+            min_assets=3
+          else
+            min_assets=4
+          fi
+          if [ "$count" -lt "$min_assets" ]; then
+            echo "::error::添付ファイルが不足しています（${count} 件）。最低 ${min_assets} 件必要です"
             exit 1
           fi

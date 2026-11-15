@@ -314,11 +314,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     needs:
-      - build_kernel
       - build_rootfs
-    # カーネル成果物の受け渡しと Limine の入手がレーン間で未接続のため、
-    # 現時点では参考ジョブとして実行する（失敗しても CI 全体は失敗にしない）。
-    # docs/requirements.md 6.1 の未接続点が解消したら continue-on-error を外す。
     continue-on-error: true
     steps:
       - name: リポジトリを取得

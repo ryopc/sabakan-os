@@ -2,7 +2,6 @@ name: Release
 
 # v*.*.* タグの push で ISO とソースバンドルを GitHub Release に添付する。
 # ライセンス遵守のため、ISO と対応ソースは必ず同一リリースに添付する
-# continue-on-error: カーネルビルド未成功時でもリリースを継続
 # （docs/source-flow.md 7.1）。
 
 on:
@@ -25,7 +24,6 @@ jobs:
   ci:
     name: リリース前検証
     uses: ./.github/workflows/ci.yml
-    continue-on-error: true
     permissions:
       contents: read
 

@@ -12,7 +12,7 @@ SHELL := /bin/sh
 
 all: help
 
-build-kernel:	## Linux カーネルをビルド (kernel.org LTS 6.18.63, x86_64)
+build-kernel:	## Linux カーネルをビルド (kernel.org LTS 6.12.34, x86_64)
 	@$(CURDIR)/scripts/build-kernel.sh
 
 build-rootfs:	## ルートファイルシステムを生成 (rootfs/)

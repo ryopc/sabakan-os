@@ -1,251 +1,396 @@
-# 配布時のソース提供フロー
+# Source Provision Flow
 
-- 版: 0.1.0（ドラフト）
-- 最終更新: 2026-11-13
-- 関連: [`license.md`](license.md)、[`requirements.md`](requirements.md)、[`../iso/COPYING`](../iso/COPYING)
+- Version: 0.2.0 (draft)
+- Last updated: 2026-11-13
+- Related: [`license.md`](license.md), [`requirements.md`](requirements.md), [`../iso/COPYING`](../iso/COPYING)
 
-## 1. 目的
+## 1. Purpose
 
-SabakanOS の ISO イメージには GPL / LGPL 対象のバイナリが含まれます。本ドキュメントは、配布物に含まれるすべてのバイナリについて「対応ソース」または「取得手段」を揃え、リリースごとに検証・保管する運用を定義します。
+The SabakanOS ISO image contains binaries covered by the GPL and LGPL. This document defines how the complete corresponding source, or the route to obtain it, is prepared for every binary in the distribution, and how that is verified, published and retained for each release.
 
-目標は次の 1 点です。
+There is exactly one goal:
 
-> ISO を受け取った第三者が、その ISO に含まれる任意の OSS について、同一のソースから同一のバイナリを再ビルドできる状態を、リリース時点で保証する。
+> At the moment of release, a third party who receives the ISO must be able to rebuild the same binary from the same source for every OSS component in that ISO.
 
-## 2. 原則
+## 2. Principles
 
-1. **バイナリとソースは 1 対 1** — ISO に含まれるバイナリは、すべてマニフェスト上で 1 行を持つ。
-2. **バージョンは固定** — タグ・コミットハッシュ・tarball のハッシュのいずれかで特定できる形にする。「最新版」という記載は禁止。
-3. **取得手段は 3 種類のいずれか** — 同一媒体への同梱、同一サーバからのダウンロード、Written Offer。
-4. **改変は隠さない** — パッチ、設定変更、フォントのサブセット化はすべて記録し、成果物に含める。
-5. **記録は 3 年以上保管** — 配布終了後も 3 年間はソースを取得可能な状態に保つ。
+1. **One binary, one source** — every binary in the ISO has one row in the manifest.
+2. **Pin the version** — identify it by a tag, a commit hash or a tarball hash. "Latest" is not an acceptable value.
+3. **One of three provision routes** — the source travels on the same medium, is downloadable from the same server, or is offered in writing.
+4. **Do not hide modifications** — patches, configuration changes and font subsetting are all recorded and included in the bundle.
+5. **Keep the records for three years** — the source stays obtainable for three years after distribution ends.
 
-## 3. 用語
+## 3. Terms
 
-| 用語 | 定義 |
-|------|------|
-| 対応ソース | バイナリの生成に使用した完全なソース。ビルドスクリプト、設定、パッチ、生成手順を含む |
-| マニフェスト | バイナリとソース・ライセンス・取得先を対応付けた一覧（`docs/source-manifest.tsv`） |
-| ソースバンドル | マニフェストに基づき収集したソース一式（`build/source/` とそのアーカイブ） |
-| SBOM | 同梱コンポーネントの機械可読な一覧（SPDX または CycloneDX） |
-| Written Offer | ソース提供を書面で申し出る文書。GPL-2.0 第 3 条 (b) などで認められる手段 |
+| Term | Definition |
+|------|------------|
+| Corresponding Source | The complete source used to produce a binary, including build scripts, configuration, patches and the generation steps |
+| Manifest | The list that maps each binary to its source, license and retrieval location (`docs/source-manifest.tsv`) |
+| Source bundle | The source tree collected by `scripts/collect-sources.sh` (`build/sources/`) and its archive |
+| SBOM | A machine-readable list of the bundled components (SPDX or CycloneDX) |
+| Written offer | A document offering the source in writing, permitted by GPL-2.0 section 3(b) and equivalent clauses |
 
-## 4. 全体フロー
+## 4. Overall Flow
 
 ```text
-[1] コンポーネント採用
-      │  実装レーンが packages/ に追加
-      ▼
-[2] ライセンス特定・マニフェスト登録        ← docs/license.md の表を更新
-      │
-      ▼
-[3] ソース取得（バージョン固定・ハッシュ記録）
-      │  make source-bundle
-      ▼
-[4] 改変の記録（パッチ・設定の保存）
-      │
-      ▼
-[5] 整合検証（ISO 内バイナリ ⇔ マニフェスト ⇔ ソース）
-      │  CI: source-manifest ジョブ
-      ▼
-[6] リリース（ISO + ソースバンドル + SBOM を添付）
-      │
-      ▼
-[7] 保管・監査（3 年、ハッシュと取得ログを保持）
+[1] Component adoption
+      |  an implementation lane adds it to packages/
+      v
+[2] License identification and manifest entry     <- update the tables in docs/license.md
+      |
+      v
+[3] Source retrieval (pinned version, recorded hash)
+      |  scripts/collect-sources.sh
+      v
+[4] Recording modifications (patches and configuration)
+      |
+      v
+[5] Consistency verification (binaries in the ISO <-> manifest <-> source)
+      |  CI: license-check workflow
+      v
+[6] Release (ISO + source bundle + SBOM attached together)
+      |
+      v
+[7] Retention and audit (three years, hashes and retrieval log kept)
 ```
 
-## 5. マニフェスト仕様
+## 5. Manifest Specification
 
-`docs/source-manifest.tsv` はタブ区切りの UTF-8 テキストです。1 行が 1 コンポーネントに対応します。テンプレートは [`source-manifest.example.tsv`](source-manifest.example.tsv) を参照してください。
+`docs/source-manifest.tsv` is tab-separated UTF-8 text. One row is one component. The template is [`source-manifest.example.tsv`](source-manifest.example.tsv); copy it to `docs/source-manifest.tsv` and fill in the real values.
 
-### 5.1 列定義
+### 5.1 Columns
 
-| 列 | 必須 | 内容 | 例 |
-|----|------|------|-----|
-| `component` | 必須 | パッケージ名。`/usr/share/licenses/<component>/` と一致させる | `busybox` |
-| `version` | 必須 | 固定バージョン。タグ名またはコミットハッシュ | `1.37.0` |
-| `license` | 必須 | SPDX 識別子。複数は `AND` / `OR` で表現 | `GPL-2.0-only` |
-| `upstream_url` | 必須 | 上流プロジェクトの URL | `https://busybox.net` |
-| `source_url` | 必須 | 対応ソースの取得先 URL（tarball またはリポジトリ） | `https://busybox.net/downloads/busybox-1.37.0.tar.bz2` |
-| `sha256` | 必須 | 取得したソースアーカイブの SHA-256。リポジトリ取得の場合は空可 | `4f2c…` |
-| `patches` | 任意 | 適用パッチのファイル名（`scripts/patches/` 配下）。複数はカンマ区切り | `0001-jp106-keymap.patch` |
-| `in_iso` | 必須 | ISO に同梱されるか（`yes` / `no`）。`no` はビルドホスト専用ツール | `yes` |
-| `notes` | 任意 | 補足。ライセンス確認状況など | `辞書データを含む` |
+| Column | Required | Content | Example |
+|--------|----------|---------|---------|
+| `component` | yes | Package name. Must match `/usr/share/licenses/<component>/` | `busybox` |
+| `version` | yes | Pinned version: a tag name or a commit hash | `1.37.0` |
+| `license` | yes | SPDX identifier. Combine with `AND` / `OR` | `GPL-2.0-only` |
+| `upstream_url` | yes | URL of the upstream project | `https://busybox.net` |
+| `source_url` | yes | Where the corresponding source is retrieved (tarball or repository) | `https://busybox.net/downloads/busybox-1.37.0.tar.bz2` |
+| `sha256` | yes | SHA-256 of the retrieved source archive. May be empty when the source is taken from a repository checkout | `4f2c...` |
+| `patches` | no | File names of applied patches (under `patches/<component>/`). Separate several with commas | `0001-jp106-keymap.patch` |
+| `in_iso` | yes | Whether the component is bundled in the ISO (`yes` / `no`). `no` means a build-host-only tool | `yes` |
+| `notes` | no | Free-form remarks, for example the state of a license review | `includes dictionary data` |
 
-### 5.2 記入例
+### 5.2 Example
 
-| component | version | license | source_url | in_iso |
+| component | version | license | source (summary) | in_iso |
 |-----------|---------|---------|------------|--------|
-| linux-kernel | 6.18.63 | GPL-2.0-only | kernel.org の該当 tarball | yes |
-| busybox | 1.37.0 | GPL-2.0-only | busybox.net の tarball | yes |
-| musl | 1.2.x | MIT | musl-libc.org の tarball | yes |
-| openrc | 0.5x | BSD-2-Clause | github.com/OpenRC/openrc のタグ | yes |
-| apk-tools | 2.14.x | GPL-2.0-only | gitlab.alpinelinux.org/alpine/apk-tools のタグ | yes |
-| limine | 8.x | BSD-2-Clause | github.com/limine-bootloader/limine のリリース | yes |
-| buildroot | 2026.08.1 | GPL-2.0-or-later | buildroot.org の tarball | no |
-| xorriso | 1.5.x | GPL-3.0-or-later | gnu.org の tarball | no |
+| linux-kernel | 6.18.63 | GPL-2.0-only | the matching tarball from kernel.org | yes |
+| busybox | 1.37.0 | GPL-2.0-only | the tarball from busybox.net | yes |
+| musl | 1.2.5 | MIT | the tarball from musl-libc.org | yes |
+| openrc | 0.56 | BSD-2-Clause | the tag from github.com/OpenRC/openrc | yes |
+| apk-tools | 2.14.4 | GPL-2.0-only | the tag from gitlab.alpinelinux.org/alpine/apk-tools | yes |
+| alpine-baselayout | 3.7.2 | GPL-2.0-only | the aports archive | yes |
+| limine | 8.x | BSD-2-Clause | the release from github.com/limine-bootloader/limine | yes |
+| buildroot | 2026.08.1 | GPL-2.0-or-later | the tarball from buildroot.org | no |
+| xorriso | 1.5.x | GPL-3.0-or-later | the tarball from gnu.org | no |
 
-> 実際の値はリリースごとに確定させます。`in_iso=no` のツール（ビルドホスト専用）は、ISO に含まれないためソース提供義務は発生しませんが、再現性のためマニフェストには残します。
+> The real values are fixed for each release. Tools with `in_iso=no` (build host only) create no source obligation because they are not in the ISO, but they stay in the manifest for reproducibility.
 
-## 6. ソース収集手順
+### 5.3 Validation Rules
 
-### 6.1 バージョンの固定
+The manifest is machine-checked by `.github/workflows/license-check.yml`. A row is rejected when:
 
-1. 上流のリリースタグまたはコミットハッシュを確定し、`version` に記録する
-2. tarball を取得し、`sha256sum` を `sha256` に記録する
-3. OpenPGP 署名が公開されている場合は署名検証を行う
+- it does not have exactly nine columns, or the header does not match the specification above
+- `component`, `version`, `license`, `upstream_url`, `source_url` or `in_iso` is empty
+- `version` is `latest`, `master`, `main`, `HEAD` or `TBD`
+- `license` is not an SPDX expression such as `GPL-2.0-only` or `MIT AND BSD-3-Clause`
+- a URL is not `https://`
+- `in_iso` is neither `yes` nor `no`
+- a row whose `source_url` is an archive (`*.tar.*`, `*.tgz`, `*.zip`) has no `sha256`, or the hash is not 64 lowercase hexadecimal characters
+- a bundled component (`in_iso=yes`) is missing from `iso/COPYING` or from `docs/license.md`
+- a file named in `patches` does not exist at that path or under `patches/<component>/`
+
+On a pull request, a missing hash is reported as a warning because the hash is normally recorded when the version is cut. On a release tag it is an error and blocks the release.
+
+## 6. Source Collection Procedure
+
+### 6.1 Pin the Version
+
+1. Fix the upstream release tag or commit hash and record it in `version`.
+2. Retrieve the tarball and record `sha256sum` in `sha256`.
+3. Verify the OpenPGP signature when upstream publishes one.
 
 ```bash
-# 入手と検証の例
+# Example: retrieve and verify
 curl -LO https://busybox.net/downloads/busybox-1.37.0.tar.bz2
 sha256sum busybox-1.37.0.tar.bz2
-# 署名がある場合
+# When a signature is published
 gpg --verify busybox-1.37.0.tar.bz2.sig busybox-1.37.0.tar.bz2
 ```
 
-### 6.2 改変の記録
+### 6.2 Record the Modifications
 
-- カーネル設定（`.config`）、ビルド変数、`defconfig` の変更は `config/` に置き、そのままソースバンドルへ含める
-- パッチは `scripts/patches/<component>/` に置き、`patches` 列に列挙する
-- パッチには適用順が分かる連番を付け、必要なら `series` ファイルを併置する
-- フォントのサブセット化を行った場合は、生成スクリプトと元フォントを両方含める
+- Keep kernel configuration (`.config`), build variables and `defconfig` changes in `config/`, and include them in the bundle unchanged.
+- Keep patches in `patches/<component>/` and list them in the `patches` column.
+- Number patches in application order and add a `series` file when the order matters.
+- When a font was subset, include both the generation script and the original font.
 
-### 6.3 ソースバンドルの生成
+### 6.3 Run the Collection Script
 
 ```bash
-make source-bundle
+./scripts/collect-sources.sh
 ```
 
-期待される動作:
+The script takes no options. It reads its input from the repository:
 
-1. マニフェストを読み、`in_iso=yes` のコンポーネントについてソースを取得またはコピーする
-2. `sha256` を検証し、不一致なら失敗する
-3. `build/source/` に `<component>-<version>/` として展開する
-4. `build/source/MANIFEST.tsv`、`build/source/SBOM.json`、`build/source/README.txt` を生成する
-5. `build/source/sabakanos-<version>-source.tar.zst` にまとめる
+| Input | Used for |
+|-------|----------|
+| `config/packages.txt` | The package names to collect (first field of each non-comment line) |
+| the pinned package table inside the script | Version, license, source URL and archive name for each GPL/LGPL package, plus the kernel |
+| `config/kernel-defconfig`, `config/buildroot-defconfig` | Copied into the bundle as the build configuration |
+| `patches/<component>/*.patch` | Applied in file-name order with `patch -p1` when the directory exists |
 
-> **現状**: `make source-bundle` は未実装です（[`requirements.md`](requirements.md) 第 6 章）。それまでの暫定措置として、`.github/workflows/release.yml` はリポジトリ本体を `sabakanos-<version>-source.tar.zst` として添付し、警告を出力します。ただし**リポジトリ本体のアーカイブだけでは、同梱 OSS（カーネル、BusyBox、musl、Limine など）の対応ソース提供義務を満たしません**。リリースを対外公開する前に、本節の手順でソースバンドルを用意してください。
+What the script does:
 
-`make source-bundle` が未実装の段階では、同等の処理を手作業で行い、同じディレクトリ構成に揃えてください。
+1. Select the targets: every table entry whose package appears in `config/packages.txt`, plus `linux-kernel`.
+2. Download each source archive into `build/sources/<component>/`, reusing a file that is already there.
+3. Compute the SHA-256 of the archive twice, compare the two results and record the value.
+4. Extract the archive in place and locate the top-level source directory.
+5. Apply the patches of `patches/<component>/` and record the names of the patches that applied.
+6. Copy the kernel and Buildroot configurations into `build/sources/config/`.
+7. Write `build/source-manifest.json`.
 
-### 6.4 ソースバンドルの構成
+| Output | Content |
+|--------|---------|
+| `build/sources/<component>/` | The archive and its extracted source tree |
+| `build/sources/config/` | `kernel-defconfig` and `buildroot-defconfig` |
+| `build/source-manifest.json` | `generated_at`, `project`, and `components[]` with `name`, `version`, `license`, `source_url`, `archive`, `archive_path`, `sha256`, `status`, `source_dir`, `patches` |
+
+Each component carries a `status` of `collected`, `download_failed`, `hash_mismatch` or `extract_failed`. The script records a failure and continues with the next component, so the release owner must check that **every component reports `collected`** before going further. A non-zero count of any other status blocks the release.
+
+The package table lives inside the script. Keep it in step with `docs/source-manifest.tsv`: a component with `in_iso=yes` in the manifest must exist in both, with the same version and license. Section 13 lists the planned change to read the manifest directly.
+
+### 6.4 Bundle Layout
 
 ```text
-build/source/
-├── MANIFEST.tsv              # 確定版マニフェスト
-├── SBOM.json                 # SPDX または CycloneDX
-├── README.txt                # 取得方法・ビルド方法の要約
-├── linux-kernel-6.12.x/
-│   ├── linux-6.12.x.tar.xz
-│   ├── config/kernel.config
-│   └── patches/
-├── busybox-1.37.0/
-│   ├── busybox-1.37.0.tar.bz2
-│   └── .config
-└── ...
+build/
+├── source-manifest.json          # Collection manifest written by collect-sources.sh
+├── SOURCE-MANIFEST.json          # Source correspondence table (see 7.3)
+├── SBOM.spdx.json                # SPDX 2.2 SBOM (see 7.2)
+└── sources/
+    ├── config/
+    │   ├── kernel-defconfig
+    │   └── buildroot-defconfig
+    ├── linux-kernel/
+    │   ├── linux-6.18.63.tar.xz
+    │   └── linux-6.18.63/
+    ├── busybox/
+    │   ├── busybox-1.37.0.tar.bz2
+    │   └── busybox-1.37.0/
+    └── ...
 ```
 
-`README.txt` には次を記載します。
+The bundle that is published is the archive of `build/sources/` together with the three JSON files:
 
-- SabakanOS のバージョンと対応する Git タグ
-- ソースの取得元と検証方法（SHA-256 一覧）
-- ビルド手順（`make build-kernel` 等）とツールチェーンのバージョン
-- 問い合わせ先
+```bash
+tar -C build/sources -cf - . | zstd -19 -T0 -o build/sabakanos-<version>-source.tar.zst
+```
 
-## 7. 配布方法
+### 6.5 Contents of README.txt
 
-優先順位は上から順です。
+`README.txt` is written by the release owner and placed next to the archive in the Release. It states:
 
-### 7.1 同一サーバからのダウンロード（原則）
+- the SabakanOS version and the matching Git tag
+- where each source came from and how to verify it (the SHA-256 values in `SOURCE-MANIFEST.json`)
+- the build steps (`make build-kernel` and so on) and the toolchain version
+- the contact address
 
-GitHub Release に ISO とソースバンドルを同時に添付します。ISO のダウンロードページと同一のリリースページから取得できるため、GPL-2.0 第 3 条 (a) の要件を満たします。
+## 7. SBOM and SOURCE-MANIFEST Generation
+
+### 7.1 Run the SBOM Script
+
+```bash
+./scripts/generate-sbom.sh
+```
+
+The script takes no options and needs `jq`. It reads `build/source-manifest.json`, so `scripts/collect-sources.sh` must have run first; without that file it exits non-zero.
+
+What the script does:
+
+1. Validate `build/source-manifest.json` as JSON.
+2. Build the SPDX document header: `spdxVersion`, `name`, `documentNamespace`, `creationInfo` with the creation time and the tool name.
+3. Convert every component into an SPDX package: `name`, `version`, `licenseDeclared`, `downloadLocation`, a SHA256 `checksum` and the `files` entry.
+4. Write `build/SOURCE-MANIFEST.json`.
+5. Validate both outputs as JSON and print the package count.
+
+| Output | Content |
+|--------|---------|
+| `build/SBOM.spdx.json` | SPDX 2.2 document listing every collected component |
+| `build/SOURCE-MANIFEST.json` | One entry per component: `component`, `version`, `license`, `upstream_url`, `source_url`, `sha256`, `local_path`, `status` |
+
+### 7.2 SBOM.spdx.json
+
+The SBOM is the machine-readable component list of the release. It is attached to the GitHub Release next to the ISO and the source bundle, and it is the file a redistributor or an auditor reads first.
+
+- The format is SPDX 2.2 JSON. Each package carries the name, the version, the declared license, the download location, the SHA-256 checksum and the path of the source inside the bundle.
+- The SBOM covers every component that the collection script processed, which is every GPL/LGPL package in `config/packages.txt` plus the kernel.
+- Build-host-only tools are not collected and therefore do not appear; the manifest keeps them for reproducibility.
+
+### 7.3 SOURCE-MANIFEST.json
+
+`SOURCE-MANIFEST.json` is the source correspondence table of one release: it says, for each component, which version was collected, where it came from, what its hash is and where it sits in the bundle.
+
+| Key | Content |
+|-----|---------|
+| `component` | Component name, matching `build/sources/<component>/` |
+| `version` | The pinned version that was collected |
+| `license` | SPDX identifier taken from the collection table |
+| `upstream_url` | The source URL used for the download |
+| `source_url` | The same URL, kept for consumers that expect a single field |
+| `sha256` | SHA-256 of the collected archive |
+| `local_path` | Path of the archive inside the bundle |
+| `status` | The collection status (`collected` when the collection succeeded) |
+
+There are three manifest files in a release, and they serve different purposes:
+
+| File | Role | Written by |
+|------|------|------------|
+| `docs/source-manifest.tsv` | Declaration: what the release intends to ship, with the nine columns of section 5.1 | A human, before the release |
+| `build/source-manifest.json` | Collection result: what was downloaded, hashed and extracted | `scripts/collect-sources.sh` |
+| `build/SOURCE-MANIFEST.json` | Published correspondence table: the subset of the collection result that ships with the release | `scripts/generate-sbom.sh` |
+
+An audit compares the declaration with the collection result. A component that is declared with `in_iso=yes` but missing from the collection result is a release blocker.
+
+### 7.4 What Must Agree
+
+Before a release, these four lists must be identical:
+
+1. the binaries in the ISO
+2. the components in `iso/COPYING`
+3. the rows with `in_iso=yes` in `docs/source-manifest.tsv`
+4. the components in `build/SOURCE-MANIFEST.json`
+
+The workflow checks 2 and 3, and that the collection and SBOM outputs exist. Item 1 is checked by hand, because the workflow sees the repository, not the produced image.
+
+## 8. Distribution Methods
+
+The routes are listed in priority order.
+
+### 8.1 Download From the Same Server (Default)
+
+The ISO and the source bundle are attached to the same GitHub Release. Because both are reachable from the same release page, the route satisfies GPL-3.0 section 6(d) and, for the GPL-2.0 components, the source accompanies the download as required by GPL-2.0 section 3(a).
 
 ```text
-https://github.com/ryotagtagtag-wq/sabakan-os/releases/tag/v<version>
+https://github.com/ryopc/sabakan-os/releases/tag/v<version>
 ├── sabakanos-<version>-x86_64.iso
 ├── sabakanos-<version>-x86_64.iso.sha256
 ├── sabakanos-<version>-source.tar.zst
-└── SBOM.json
+├── SOURCE-MANIFEST.json
+├── SBOM.spdx.json
+├── COPYING
+└── SHA256SUMS
 ```
 
-### 7.2 同一媒体への同梱
+### 8.2 Same Medium
 
-ソースサイズが小さく ISO に収まる場合は、別ボリュームまたは追加ファイルとして同梱できます。ISO サイズの目標（[`requirements.md`](requirements.md) NFR-003）に影響するため、原則として 7.1 を使います。
+When the source is small enough to fit, it can be shipped on the ISO or on an accompanying volume. This satisfies GPL-2.0 section 3(a) and GPL-3.0 section 6(a) directly. It affects the ISO size target ([`requirements.md`](requirements.md) NFR-003), so 8.1 is the default.
 
-### 7.3 Written Offer
+### 8.3 Written Offer
 
-上記が困難な場合（オフライン配布、第三者への再配布など）に限り、書面による申し出を発行します。有効期間は配布日から 3 年間です。
+Only when the routes above are impractical (offline distribution, redistribution by a third party) is a written offer issued. The validity period is three years from the date of distribution.
 
 ```text
 Written Offer for Source Code
 
-SabakanOS <version>（配布日: <YYYY-MM-DD>）に含まれる GPL / LGPL 対象ソフトウェアについて、
-第三者に対応ソースコードの完全なコピーを提供します。
+For the GPL and LGPL covered software contained in SabakanOS <version>
+(distributed on <YYYY-MM-DD>), we offer any third party a complete
+machine-readable copy of the corresponding source code.
 
-対象: <iso/COPYING に記載のコンポーネント一覧>
-提供方法: 電子ダウンロード（URL を通知）または物理媒体
-申し出の有効期間: 配布日から 3 年間
-連絡先: <プロジェクトの連絡先>
+Components: <the component list in iso/COPYING>
+How it is provided: electronic download (a URL is sent on request) or
+physical media
+Validity of this offer: three years from the date of distribution
+Charge: no more than the cost of physically performing source distribution
+Contact: <project contact>
 
-本申し出は、GPL-2.0 第 3 条 (b)、GPL-3.0 第 6 条 (b)、
-LGPL-2.1 第 4 条等に基づくものです。
+This offer is made under GPL-2.0 section 3(b), GPL-3.0 section 6(b) and
+LGPL-2.1 section 6.
 ```
 
-発行した Written Offer は、配布ログとともに 3 年間保管します。
+The offer only satisfies the clause it names when all of the following hold, and the release owner confirms each one:
 
-## 8. リリース手順
+1. it is addressed to any third party, not only to the direct recipient
+2. it stays valid for at least three years from the date of distribution
+3. the charge does not exceed the cost of physically performing source distribution
+4. what is offered is the complete machine-readable source, including build configuration and patches
+5. it names the version and the components covered
 
-1. `main` の CI が green であることを確認する
-2. マニフェストを確定する（`docs/source-manifest.tsv` を更新）
-3. `iso/COPYING` を更新し、ISO 内 `/usr/share/licenses/` と突合する
-4. `make source-bundle` を実行し、ハッシュ検証が通ることを確認する
-5. ISO をビルドし、`sha256sum` を記録する
-6. SBOM を生成する
-7. タグを push し、`.github/workflows/release.yml` で Release を作成する
-8. Release に ISO、ISO のハッシュ、ソースバンドル、SBOM が添付されていることを確認する
-9. [`license.md`](license.md) のリリース前チェックリストを実行し、結果を記録する
-10. 保管場所（Release とバックアップ）に成果物を保存する
+An issued written offer is kept with the distribution log for three years, because the obligation outlives the release. A written offer does not replace shipping the full license texts.
 
-## 9. 検証（CI）
+## 9. Release Procedure
 
-`.github/workflows/ci.yml` の `license` ジョブで次を検証します。
+1. Confirm that CI on `main` is green.
+2. Finalise the declaration: update `docs/source-manifest.tsv` with the versions, URLs and hashes for this release.
+3. Update `iso/COPYING` and reconcile it with `/usr/share/licenses/` in the ISO.
+4. Run `./scripts/collect-sources.sh` and confirm that every component in `build/source-manifest.json` reports `status: collected`.
+5. Run `./scripts/generate-sbom.sh` and confirm that `build/SBOM.spdx.json` and `build/SOURCE-MANIFEST.json` are written.
+6. Archive the bundle as `sabakanos-<version>-source.tar.zst` and write `README.txt` (section 6.5).
+7. Build the ISO and record `sha256sum` of the image.
+8. Confirm that the license check passes on the release tag (release mode, no findings).
+9. Push the tag and let `.github/workflows/release.yml` create the Release.
+10. Confirm that the Release carries the ISO, the ISO hash, the source bundle, `SOURCE-MANIFEST.json`, `SBOM.spdx.json`, `COPYING` and `SHA256SUMS`.
+11. Work through the pre-release checklist in [`license.md`](license.md) section 11 and record the result.
+12. Store the artifacts in the retention location (the Release and the backup).
 
-| 検証項目 | 失敗条件 |
-|----------|----------|
-| 必須ファイルの存在 | `iso/COPYING`、`docs/license.md`、`docs/source-flow.md` のいずれかが無い |
-| `iso/COPYING` の内容 | コンポーネント一覧の見出しが無い、または空 |
-| マニフェストの書式 | ヘッダ列が仕様と一致しない |
-| 禁止パターン | 秘密情報らしき文字列（`BEGIN PRIVATE KEY` 等）を検出 |
+## 10. CI Verification
 
-`make source-bundle` が実装された後は、ハッシュ検証と SBOM 生成も同じジョブに追加します。
+Two workflows verify this process.
 
-## 10. 保管と監査
+`.github/workflows/ci.yml` runs on every push and pull request and checks the static facts:
 
-| 対象 | 保管期間 | 保管場所 |
-|------|----------|----------|
-| ISO とハッシュ | 3 年以上 | GitHub Release（削除しない）＋ローカルバックアップ |
-| ソースバンドル | 3 年以上 | 同上 |
-| SBOM | 3 年以上 | 同上 |
-| リリース時チェックリストの記録 | 3 年以上 | `docs/releases/<version>.md`（将来追加） |
-| Written Offer の発行記録 | 3 年以上 | リリース記録に併記 |
+| Check | Job | Fails when |
+|-------|-----|------------|
+| Required files exist | `docs` | `iso/COPYING`, `docs/license.md`, `docs/source-flow.md` or the manifest template is missing |
+| `iso/COPYING` content | `license` | A component, a license family or the `/usr/share/licenses/` pointer is missing |
+| Manifest format | `license` | The header does not match the nine-column specification |
+| Secret patterns | `license` | A string such as `BEGIN PRIVATE KEY` is found, or a secret file is tracked |
 
-監査時は「ISO 内のバイナリ → `iso/COPYING` → マニフェスト → ソースバンドル」の順に辿り、各段階で一致することを確認します。
+`.github/workflows/license-check.yml` is the release gate. It runs on pull requests and on `v*.*.*` tags and checks that:
 
-## 11. 障害時の対応
+| Check | Fails when |
+|-------|------------|
+| Package inventory | `config/packages.txt` is missing, empty, or contains a package with no license mapping |
+| License records | A package has no row in `docs/license.md` or `iso/COPYING`, or the row states no license identifier |
+| Source records | The manifest is missing on a tag, the header or column count is wrong, a version is not pinned, a license is not SPDX, or a URL is not https |
+| Hashes and patches | An archive has no `sha256` (on a tag), a hash is malformed, or a referenced patch is missing |
+| COPYING notices | A notice, license family, license directory pointer or the source provision section is missing |
+| Documentation statements | The clause numbers or the tooling names are not stated, or the documents contain non-English text |
+| Source tooling | `scripts/collect-sources.sh` or `scripts/generate-sbom.sh` is missing (on a tag), not executable, or syntactically broken |
+| Source outputs | `build/source-manifest.json` is present but invalid, lists no components, or a component reports a status other than `collected` |
 
-| 状況 | 対応 |
-|------|------|
-| 上流のソースが削除された | 保管済みのソースバンドルを提供する。再配布が許諾されている場合はミラーを公開する |
-| ハッシュが一致しない | リリースを止める。取得元の改変・侵害を疑い、別ミラーから再取得して照合する |
-| ライセンスが途中で変更された | 該当バージョンの条項を確認し、必要ならバージョンを固定し直す。`license.md` を更新する |
-| 同梱物のライセンスが不明と判明した | 該当コンポーネントを ISO から外すか、許諾を確認できるまでリリースを停止する |
-| 誤って秘密情報を含めて配布した | 直ちに該当する鍵を失効させ、リリースを撤回し、影響範囲を記録する |
+A single finding fails the run, so the release stops before publishing. The step summary lists every finding with the file it came from.
 
-## 12. 自動化の拡張案
+## 11. Retention and Audit
 
-将来的に以下を CI に追加します。
+| Item | Retention | Location |
+|------|-----------|----------|
+| ISO and its hash | three years or more | GitHub Release (never deleted) plus a local backup |
+| Source bundle | three years or more | as above |
+| `SOURCE-MANIFEST.json`, `SBOM.spdx.json` and `source-manifest.json` | three years or more | as above |
+| Pre-release checklist record | three years or more | `docs/releases/<version>.md` (to be added) |
+| Issued written offer | three years or more | recorded with the release log |
 
-- `packages/` のマニフェストから `docs/source-manifest.tsv` の未登録項目を検出
-- ISO 内の ELF ファイルを列挙し、マニフェストとの差分を検出
-- SPDX 形式の SBOM を `cyclonedx` / `syft` で自動生成
-- ソースバンドルの再ビルドによるハッシュ一致検証（再現性チェック）
+An audit walks the chain "binary in the ISO -> `iso/COPYING` -> manifest -> source bundle" and confirms that each step matches the next.
+
+## 12. Incident Response
+
+| Situation | Action |
+|-----------|--------|
+| Upstream source disappeared | Provide the retained source bundle. Publish a mirror when redistribution is permitted |
+| Hash mismatch | Stop the release. Assume the source was altered or compromised, retrieve it from another mirror and compare |
+| A license changed mid-flight | Check the terms of the version in use, re-pin if needed, and update `license.md` |
+| A bundled component turns out to have an unknown license | Remove it from the ISO, or stop the release until permission is confirmed |
+| Secrets were distributed by mistake | Revoke the affected key immediately, withdraw the release and record the scope |
+
+## 13. Planned Automation
+
+Planned additions to CI and to the scripts:
+
+- let `scripts/collect-sources.sh` read `docs/source-manifest.tsv` directly, so the declaration and the collection cannot drift apart (today the pinned table lives inside the script)
+- make a failed download or a failed extraction a hard failure instead of a recorded status
+- detect manifest rows that are missing for packages found in `packages/`
+- enumerate the ELF files in the ISO and diff them against the manifest
+- generate the SPDX SBOM with `syft` or `cyclonedx` as an independent cross-check
+- rebuild the source bundle and compare hashes (reproducibility check)

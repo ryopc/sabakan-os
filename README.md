@@ -1,6 +1,6 @@
 # SabakanOS
 
-[![CI](https://github.com/ryotagtagtag-wq/sabakan-os/actions/workflows/ci.yml/badge.svg)](https://github.com/ryotagtagtag-wq/sabakan-os/actions/workflows/ci.yml)
+[![CI](https://github.com/ryopc/sabakan-os/actions/workflows/ci.yml/badge.svg)](https://github.com/ryopc/sabakan-os/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A lightweight, fast Linux-based operating system with built-in Japanese language support.
@@ -68,7 +68,7 @@ On macOS the stock `make` (3.81) is not enough for the kernel build, so use `gma
 ## Quick Start
 
 ```bash
-git clone https://github.com/ryotagtagtag-wq/sabakan-os.git
+git clone https://github.com/ryopc/sabakan-os.git
 cd sabakan-os
 
 # 1. Install build dependencies (Ubuntu / Debian)
@@ -95,7 +95,7 @@ cp build/linux-6.18.63/arch/x86/boot/bzImage build/kernel
 ### 1. Get the Repository
 
 ```bash
-git clone https://github.com/ryotagtagtag-wq/sabakan-os.git
+git clone https://github.com/ryopc/sabakan-os.git
 cd sabakan-os
 ```
 

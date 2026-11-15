@@ -1,6 +1,6 @@
 # License Compliance Policy
 
-- Version: 0.1.0 (draft)
+- Version: 0.2.0 (draft)
 - Last updated: 2026-11-13
 - Scope: the SabakanOS repository, build artifacts, distributed ISO images and source bundles
 
@@ -196,13 +196,89 @@ Rules:
 
 | Method | When it applies | Implementation |
 |--------|-----------------|----------------|
-| Include on the same medium | When the source is small enough to fit on the ISO | Include the `make source-bundle` output on the ISO or on a separate volume |
+| Include on the same medium | When the source is small enough to fit on the ISO | Include the `scripts/collect-sources.sh` output on the ISO or on a separate volume |
 | Download from the same server | When attaching the source bundle to a GitHub Release (the default) | State the tag and its correspondence for every release |
-| Written Offer | The last resort when the above are difficult | Issue the offer text and validity period (3 years) as described in `docs/source-flow.md` |
+| Written Offer | The last resort when the above are difficult | Issue the offer text and validity period (3 years) as described in [`source-flow.md`](source-flow.md) section 8.3 |
 
-For the detailed operating procedure, the manifest format and the pre-release checklist, see [`source-flow.md`](source-flow.md).
+Section 8 states the clause each method satisfies and the conditions a written offer has to meet. For the detailed operating procedure, the manifest format and the pre-release checklist, see [`source-flow.md`](source-flow.md).
 
-## 8. Handling Modifications
+## 8. License Compliance System
+
+This chapter is the operational contract behind the policy: it names the clause each distribution route relies on, states the three ways to provide the corresponding source, and describes the automated verification that runs before a release.
+
+### 8.1 Clause Map
+
+| License | Clause | What the clause requires | How SabakanOS meets it |
+|---------|--------|--------------------------|------------------------|
+| GPL-2.0 | section 3(a) | Conveying object code is allowed only when it is accompanied by the complete corresponding machine-readable source code, on a medium customarily used for software interchange | The source bundle `sabakanos-<version>-source.tar.zst` is attached to the same Release page as the ISO |
+| GPL-2.0 | section 3(b) | Alternatively, accompany the object code with a written offer, valid for at least three years, to give any third party a complete machine-readable copy of the corresponding source for a charge no more than the cost of physically performing source distribution | Used for offline or physical media distribution (section 8.2) |
+| GPL-2.0 | section 3(c) | Alternatively, accompany the object code with the offer information you received (non-commercial redistribution only) | Downstream redistributors pass on this document and the release notes |
+| GPL-3.0 | section 6(a) | Convey the object code accompanied by the Corresponding Source on a durable physical medium customarily used for software interchange | Releases on physical media carry the source bundle on the same medium |
+| GPL-3.0 | section 6(b) | Convey the object code accompanied by a written offer, valid for at least three years, to give the recipient (i) a copy of the Corresponding Source on a durable physical medium for a charge no more than the cost of performing this, or (ii) access to copy the Corresponding Source from a network server at no further charge | The written offer used for offline distribution (section 8.2) |
+| GPL-3.0 | section 6(d) | Offer equivalent access to the Corresponding Source from the same place at no further charge | The ISO and the source bundle are published from the same Release page |
+| GPL-3.0 | section 6, final paragraph | When object code is conveyed in, with, or specifically for a User Product, the Corresponding Source must be accompanied by the Installation Information | SabakanOS does not ship a locked-down User Product; a release that changes this must record the Installation Information |
+| LGPL-2.1 | section 4 | Object code may be distributed only when accompanied by the complete corresponding machine-readable source code of the Library, distributed under sections 1 and 2 of the license, on a medium customarily used for software interchange | The source bundle contains the Library sources together with the patches that were applied |
+| LGPL-2.1 | section 6 | Distributing a work that combines or links with the Library requires a prominent notice that the Library is used and covered by the license, the license text, the source of the Library including any changes, and a form that lets the recipient relink the work after modifying the Library | Libraries stay dynamically linked; static linking requires shipping the object files and the relink instructions |
+| SIL OFL 1.1 | — | The full license text travels with the font, the font is not sold on its own, and a modified version drops the Reserved Font Name | License text installed under `/usr/share/licenses/`; subset fonts are renamed and recorded |
+
+Only the clause numbers matter for a release decision: if a route is used that is not listed for the applicable license, the release is blocked until the route is re-established or the component is removed.
+
+### 8.2 Three Ways to Provide the Source
+
+Exactly three routes are acceptable. Pick one per distribution and record which one was used.
+
+| Route | Clause basis | When it is used | Conditions |
+|-------|--------------|-----------------|------------|
+| Same medium (source bundled with the binary) | GPL-2.0 section 3(a), GPL-3.0 section 6(a), LGPL-2.1 section 4 | When the bundle fits on the medium or on an accompanying volume | The bundle must be the complete corresponding source, on a medium customarily used for software interchange, and must include the build configuration and patches |
+| Same server (download from the same place) | GPL-3.0 section 6(d); GPL-2.0 section 3(a) when the source accompanies the download | The default for GitHub Releases | The source is reachable from the same page as the ISO, at no further charge, and stays reachable for at least three years |
+| Written offer | GPL-2.0 section 3(b), GPL-3.0 section 6(b), LGPL-2.1 section 6 | Offline or physical media distribution, or redistribution by a third party | See the conditions below |
+
+A written offer is only valid when **all** of the following hold. These are the conditions of GPL-2.0 section 3(b) and its GPL-3.0 section 6(b) counterpart:
+
+1. It is addressed to **any third party**, not only to the direct recipient or to customers.
+2. It stays valid for **at least three years** from the date the object code was distributed.
+3. The source is provided for a charge **no more than the cost of physically performing source distribution**.
+4. What is offered is a **complete machine-readable copy of the corresponding source code**, including the build configuration and the patches.
+5. The offer names the **version and the components** it covers.
+
+Two further rules apply:
+
+- A written offer is an additional route, **not a substitute for the license texts**. The full text of every license and the copyright notices must still be installed under `/usr/share/licenses/`.
+- An offer issued under GPL-2.0 section 3(b) or GPL-3.0 section 6(b) must be recorded in the release log and kept for the same three years, because the obligation outlives the release.
+
+The offer template and the operating steps are in [`source-flow.md`](source-flow.md) sections 8.3 and 9.
+
+### 8.3 Automated Verification
+
+`.github/workflows/license-check.yml` runs on every pull request and on every release tag (`v*.*.*`). It fails the run when a compliance item is missing, which stops the release before anything is published.
+
+| Check | Input | Fails when |
+|-------|-------|------------|
+| Package inventory | `config/packages.txt` | The file is missing or empty, or a package has no license mapping |
+| License records | `docs/license.md`, `iso/COPYING` | A package has no row in either file, the row states no license identifier, or the pointer to `/usr/share/licenses/<component>/` is missing |
+| Source records | `docs/source-manifest.tsv` (falls back to the template on pull requests) | The header is not the 9-column specification, a row has the wrong column count, a component has no version, license, upstream URL or source URL, the version is not pinned, or the license is not an SPDX expression |
+| Hashes and patches | `docs/source-manifest.tsv` | A source archive has no `sha256` or a malformed one (release tag only), or a referenced patch is absent |
+| COPYING notices | `iso/COPYING` | A required notice, license family, license directory pointer or the source-provision section is missing |
+| Documentation statements | `docs/license.md`, `docs/source-flow.md` | The clause numbers, the three provision routes or the tooling names are not stated, or the documents contain non-English text |
+| Source tooling | `scripts/collect-sources.sh`, `scripts/generate-sbom.sh` | A script is missing (release tag only), not executable, or has a shell syntax error |
+
+Two modes are used:
+
+- **review** (pull requests, manual runs) — items that cannot be satisfied yet, such as hashes not recorded before a version is cut, are reported as warnings. Real defects (a missing license row, a broken manifest) still fail.
+- **release** (`v*.*.*` tag) — every item is mandatory. The real manifest must exist, the hashes must be filled in, and the source tooling must be present.
+
+To fix a failure, add the missing record rather than suppressing the check: add the row to this document and to `iso/COPYING`, add the component to the manifest with a pinned version and hash, or install the missing license text.
+
+### 8.4 What Automation Cannot Decide
+
+The workflow verifies that records exist and agree with each other. It does not read the built ISO. A human still has to confirm:
+
+- that the files inside the produced ISO match the inventory (the workflow sees the repository, not the image)
+- that the license of a new or unusual component really permits redistribution (firmware, dictionary data, fonts with Reserved Font Names)
+- that the source bundle really rebuilds the shipped binary
+- that no Installation Information obligation was created by the way the image is distributed
+
+## 9. Handling Modifications
 
 - If you make changes that are not in upstream — kernel configuration changes, patch application, font subsetting and so on — include the patches themselves and the way to apply them in the source bundle
 - Record the changes in the `patches` column of the manifest described in `docs/source-flow.md`
@@ -210,7 +286,7 @@ For the detailed operating procedure, the manifest format and the pre-release ch
 - For changes to GPL-3.0 components, show the change date and the nature of the change in the file
 - Do not remove or alter license notices
 
-## 9. Prohibited Practices and Cautions
+## 10. Prohibited Practices and Cautions
 
 | Practice | Reason |
 |----------|--------|
@@ -223,7 +299,7 @@ For the detailed operating procedure, the manifest format and the pre-release ch
 | Including secrets (keys, tokens) in the repository or the ISO | Security incident. Prevent it with `.gitignore` and CI |
 | Redistributing firmware of unknown origin | Firmware often carries its own clauses and must be verified |
 
-## 10. Pre-Release Checklist
+## 11. Pre-Release Checklist
 
 The release owner confirms every item below. A single unchecked item blocks the release.
 
@@ -239,16 +315,29 @@ The release owner confirms every item below. A single unchecked item blocks the 
 - [ ] No secrets are included (`git grep` and the CI secret scan)
 - [ ] License changes are described in the release notes
 
-## 11. Roles
+Compliance items verified by the workflow (section 8.3):
+
+- [ ] `.github/workflows/license-check.yml` passed on the release tag in release mode, with no findings
+- [ ] Every package in `config/packages.txt` has a row in this document and a row in `iso/COPYING`
+- [ ] `docs/source-manifest.tsv` exists (the template alone is not enough) and every `in_iso=yes` row has a `sha256`
+- [ ] `scripts/collect-sources.sh` ran for this version and every component in `build/source-manifest.json` reports `collected`
+- [ ] `scripts/generate-sbom.sh` produced `build/SBOM.spdx.json` and `build/SOURCE-MANIFEST.json`
+- [ ] The published source bundle contains the extracted sources, the build configuration, `source-manifest.json`, `SOURCE-MANIFEST.json`, `SBOM.spdx.json` and `README.txt`
+- [ ] The provision route used for this release is recorded (same medium, same server or written offer)
+- [ ] A written offer, if used, satisfies all five conditions of section 8.2 (any third party, three years, cost of distribution only, complete machine-readable source, components named)
+
+## 12. Roles
 
 | Role | Owner | Responsibility |
 |------|-------|----------------|
 | Adding components | Implementation lanes | Identify the license, update this document and the manifest, install the full license texts |
-| Documentation, CI, releases, license compliance | Lane E | Maintain the policy, run the checklist, keep `iso/COPYING` consistent, verify before approving a release |
+| Documentation, releases, license compliance | Lane E | Maintain the policy, run the checklist, keep `iso/COPYING` consistent, verify before approving a release |
+| License check CI | Lane G2 | Maintain `.github/workflows/license-check.yml`, keep the package mapping in step with `config/packages.txt`, keep the check blocking on a release tag |
 | Final approval | Project owner | Decide cases that require a legal judgement |
 
-## 12. Revision History
+## 13. Revision History
 
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1.0 | 2026-11-13 | Initial version (component inventory, obligations, checklist) |
+| 0.2.0 | 2026-11-13 | Added the License Compliance System: clause map (GPL-2.0 section 3, GPL-3.0 section 6, LGPL-2.1 sections 4 and 6), the three source provision routes with the written offer conditions, the automated verification in `.github/workflows/license-check.yml`, and the compliance checklist items |

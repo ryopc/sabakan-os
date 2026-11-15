@@ -1,0 +1,559 @@
+name: License Check
+
+# Lane G2 — release-gating license compliance verification.
+#
+# A release may only be published when three things are provable:
+#   1. every package in config/packages.txt has a recorded license,
+#   2. every bundled component has version, source, hash and patch records in
+#      the source manifest, and
+#   3. iso/COPYING carries the notices and pointer that the licenses require.
+#
+# Each check reports every finding it can (it does not stop at the first one)
+# and the final gate fails the run when at least one finding remains, so the
+# release pipeline stops before publishing.
+#
+# Triggers: pull requests and release tags (v*.*.*). On a release tag the
+# checks are strict — the real manifest, the hashes and the source tooling are
+# mandatory. On a pull request the same checks run, but items that are still
+# being prepared (for example hashes not yet recorded) are reported as warnings
+# instead of failures, so ordinary development is not blocked.
+#
+# Policy:  docs/license.md
+# Process: docs/source-flow.md
+# Related: .github/workflows/ci.yml (license job, fast static checks)
+
+on:
+  pull_request:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: license-check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LC_ALL: C.UTF-8
+  PACKAGE_LIST: config/packages.txt
+  LICENSE_DOC: docs/license.md
+  SOURCE_FLOW: docs/source-flow.md
+  COPYING: iso/COPYING
+  MANIFEST: docs/source-manifest.tsv
+  MANIFEST_TEMPLATE: docs/source-manifest.example.tsv
+  COLLECT_SCRIPT: scripts/collect-sources.sh
+  SBOM_SCRIPT: scripts/generate-sbom.sh
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  license-check:
+    name: License compliance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Determine verification mode
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
+            mode=release
+            strict=1
+          else
+            mode=review
+            strict=0
+          fi
+
+          echo "LICENSE_MODE=$mode" >> "$GITHUB_ENV"
+          echo "LICENSE_STRICT=$strict" >> "$GITHUB_ENV"
+          : > "$RUNNER_TEMP/license-findings.txt"
+          : > "$RUNNER_TEMP/license-warnings.txt"
+
+          echo "::notice::License check running in $mode mode (GITHUB_REF=${GITHUB_REF:-unknown})"
+          {
+            echo "## License compliance"
+            echo ""
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Mode | \`$mode\` |"
+            echo "| Ref | \`${GITHUB_REF:-unknown}\` |"
+            echo "| Commit | \`${GITHUB_SHA:-unknown}\` |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ---------------------------------------------------------------------
+      # (a) Load the package inventory from config/packages.txt
+      # ---------------------------------------------------------------------
+      - name: Load package inventory
+        run: |
+          set -uo pipefail
+          findings="$RUNNER_TEMP/license-findings.txt"
+          add_finding() {
+            printf '%s\n' "$1" >> "$findings"
+            printf '::error::%s\n' "$1"
+          }
+
+          packages=()
+          if [ -s "$PACKAGE_LIST" ]; then
+            while IFS= read -r line; do
+              line="${line%%#*}"
+              for name in $line; do
+                packages+=("$name")
+              done
+            done < "$PACKAGE_LIST"
+          else
+            add_finding "$PACKAGE_LIST is missing or empty; the package inventory cannot be loaded"
+          fi
+
+          if [ "${#packages[@]}" -gt 0 ]; then
+            mapfile -t packages < <(printf '%s\n' "${packages[@]}" | awk 'NF && !seen[$0]++')
+          fi
+
+          if [ "${#packages[@]}" -eq 0 ]; then
+            add_finding "no package could be read from $PACKAGE_LIST"
+            : > "$RUNNER_TEMP/license-packages.txt"
+          else
+            printf '%s\n' "${packages[@]}" > "$RUNNER_TEMP/license-packages.txt"
+            echo "::notice::Loaded ${#packages[@]} packages from $PACKAGE_LIST"
+            {
+              echo "### Packages loaded from \`$PACKAGE_LIST\`"
+              echo ""
+              printf '%s\n' "${packages[@]}" | sed 's/^/- `/; s/$/`/'
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # ---------------------------------------------------------------------
+      # (b) Every package needs a license record in docs/license.md
+      # (d) Every package needs a row and a license directory in iso/COPYING
+      # ---------------------------------------------------------------------
+      - name: Verify license records
+        run: |
+          set -uo pipefail
+          findings="$RUNNER_TEMP/license-findings.txt"
+          add_finding() {
+            printf '%s\n' "$1" >> "$findings"
+            printf '::error::%s\n' "$1"
+          }
+
+          if [ ! -s "$LICENSE_DOC" ]; then
+            add_finding "$LICENSE_DOC is missing or empty; the license inventory cannot be verified"
+          fi
+          if [ ! -s "$COPYING" ]; then
+            add_finding "$COPYING is missing or empty; bundled licenses cannot be notified"
+          fi
+
+          # package | docs/license.md row label | iso/COPYING row label | license directory
+          # A license directory of "-" marks an optional component that is not
+          # bundled by default: it still needs a license row in docs/license.md,
+          # but it has no entry in iso/COPYING and no /usr/share/licenses/ dir.
+          mapping=$(cat <<'MAPPING'
+          busybox|BusyBox|BusyBox|busybox
+          openrc|OpenRC|OpenRC|openrc
+          alpine-baselayout|alpine-baselayout|alpine-baselayout|alpine-baselayout
+          apk-tools|apk-tools|apk-tools|apk-tools
+          bash|bash|bash|-
+          dhcpcd|dhcpcd|dhcpcd|dhcpcd
+          wpa_supplicant|wpa_supplicant|wpa_supplicant|wpa_supplicant
+          wireless-tools|wireless-tools|wireless-tools|wireless-tools
+          iptables|iptables|iptables|iptables
+          iproute2|iproute2|iproute2|iproute2
+          openssh|OpenSSH (client / server)|OpenSSH|openssh
+          openssh-client|OpenSSH (client / server)|OpenSSH|openssh
+          openssh-server|OpenSSH (client / server)|OpenSSH|openssh
+          dropbear|dropbear|dropbear|-
+          sudo|sudo|sudo|sudo
+          vi|vi / vim|vi / vim|busybox
+          less|less|less|less
+          grep|grep / gzip / tar|grep / gzip / tar|busybox
+          gzip|grep / gzip / tar|grep / gzip / tar|busybox
+          tar|grep / gzip / tar|grep / gzip / tar|busybox
+          syslog|syslog (busybox syslogd)|syslog (busybox)|busybox
+          cronie|cronie|cronie|cronie
+          procps|procps-ng|procps-ng|procps
+          MAPPING
+          )
+
+          declare -A known=()
+          while IFS='|' read -r pkg row_label copying_label license_dir; do
+            [ -n "$pkg" ] || continue
+            known["$pkg"]=1
+
+            if [ -s "$LICENSE_DOC" ]; then
+              if grep -qF -- "| ${row_label} |" "$LICENSE_DOC"; then
+                row=$(grep -m1 -F -- "| ${row_label} |" "$LICENSE_DOC")
+                if ! printf '%s' "$row" | grep -qE 'GPL-|LGPL-|MIT|BSD-|ISC|OFL|OpenSSH license|Vim license|IPA Font License|public domain'; then
+                  add_finding "$LICENSE_DOC: the row for '$pkg' does not state a license identifier"
+                fi
+              else
+                add_finding "$LICENSE_DOC: no license row found for '$pkg' (expected a row labelled '$row_label')"
+              fi
+            fi
+
+            if [ -s "$COPYING" ] && [ "$license_dir" != "-" ]; then
+              if ! grep -qF -- "$copying_label" "$COPYING"; then
+                add_finding "$COPYING: no entry for '$pkg' (expected '$copying_label')"
+              fi
+              if ! grep -qF -- "/usr/share/licenses/${license_dir}/" "$COPYING"; then
+                add_finding "$COPYING: no pointer to /usr/share/licenses/${license_dir}/ for '$pkg'"
+              fi
+            fi
+          done <<< "$mapping"
+
+          # A package added to config/packages.txt without a mapping line is a
+          # compliance gap: its license cannot be checked automatically.
+          while IFS= read -r pkg; do
+            [ -n "$pkg" ] || continue
+            if [ -z "${known[$pkg]:-}" ]; then
+              add_finding "package '$pkg' has no license mapping; add a row to the mapping in .github/workflows/license-check.yml and to $LICENSE_DOC"
+            fi
+          done < "$RUNNER_TEMP/license-packages.txt"
+
+      # ---------------------------------------------------------------------
+      # (c) Source records: version, source URL, hash and patches
+      # ---------------------------------------------------------------------
+      - name: Verify source records
+        run: |
+          set -uo pipefail
+          findings="$RUNNER_TEMP/license-findings.txt"
+          add_finding() {
+            printf '%s\n' "$1" >> "$findings"
+            printf '::error::%s\n' "$1"
+          }
+
+          manifest=""
+          if [ -s "$MANIFEST" ]; then
+            manifest="$MANIFEST"
+            echo "::notice::Using the release manifest $MANIFEST"
+          elif [ -s "$MANIFEST_TEMPLATE" ]; then
+            manifest="$MANIFEST_TEMPLATE"
+            if [ "$LICENSE_STRICT" = "1" ]; then
+              add_finding "$MANIFEST is required for a release tag but does not exist; only the template $MANIFEST_TEMPLATE is present"
+            else
+              echo "::warning::$MANIFEST does not exist yet; the checks run against the template $MANIFEST_TEMPLATE"
+            fi
+          else
+            add_finding "neither $MANIFEST nor $MANIFEST_TEMPLATE exists; source records cannot be verified"
+          fi
+
+          if [ -n "$manifest" ]; then
+            expected_header=$'component\tversion\tlicense\tupstream_url\tsource_url\tsha256\tpatches\tin_iso\tnotes'
+            actual_header=$(grep -v '^#' "$manifest" | head -n 1 || true)
+            if [ "$actual_header" != "$expected_header" ]; then
+              add_finding "$manifest: the header does not match the 9-column specification of docs/source-flow.md section 5.1"
+            fi
+
+            awk -F'\t' -v strict="$LICENSE_STRICT" -v file="$manifest" '
+              /^#/ { next }
+              NF == 0 { next }
+              # The first non-comment row is the header; it is validated in the
+              # shell above, not as a data row.
+              !header_seen { header_seen = 1; next }
+              {
+                n++
+                if (NF != 9) {
+                  printf "FINDING|%s: row %d has %d columns (expected 9)\n", file, n, NF
+                  next
+                }
+                component = $1; version = $2; license = $3; upstream = $4
+                source_url = $5; sha256 = $6; patches = $7; in_iso = $8
+
+                if (component == "") printf "FINDING|%s: row %d has an empty component name\n", file, n
+                if (version == "") {
+                  printf "FINDING|%s: %s has no version\n", file, component
+                } else if (version ~ /^(latest|master|main|HEAD|TBD)$/) {
+                  printf "FINDING|%s: %s uses the unpinned version \"%s\"\n", file, component, version
+                }
+                if (license == "") {
+                  printf "FINDING|%s: %s has no license identifier\n", file, component
+                } else if (license !~ /^[A-Za-z0-9.+-]+([ ]+(AND|OR|WITH)[ ]+[A-Za-z0-9.+-]+)*$/) {
+                  printf "FINDING|%s: %s has a license field that is not an SPDX expression (\"%s\")\n", file, component, license
+                }
+                if (upstream == "" || upstream !~ /^https:\/\//) {
+                  printf "FINDING|%s: %s has no https upstream_url\n", file, component
+                }
+                if (source_url == "" || source_url !~ /^https:\/\//) {
+                  printf "FINDING|%s: %s has no https source_url\n", file, component
+                }
+                if (in_iso != "yes" && in_iso != "no") {
+                  printf "FINDING|%s: %s has in_iso=\"%s\" (expected yes or no)\n", file, component, in_iso
+                }
+                if (source_url ~ /\.(tar|tar\.[A-Za-z0-9]+|tgz|zip)$/) {
+                  if (sha256 == "") {
+                    if (strict == "1") {
+                      printf "FINDING|%s: %s has no sha256 for its source archive\n", file, component
+                    } else {
+                      printf "WARNING|%s: %s has no sha256 yet (required for a release)\n", file, component
+                    }
+                  } else if (sha256 !~ /^[0-9a-f]{64}$/) {
+                    printf "FINDING|%s: %s has a sha256 that is not 64 lowercase hex characters\n", file, component
+                  }
+                }
+                if (in_iso == "yes") bundled[component] = 1
+              }
+              END {
+                if (n == 0) printf "FINDING|%s: the manifest has no component rows\n", file
+              }
+              ' "$manifest" > "$RUNNER_TEMP/license-manifest-report.txt" || true
+
+            while IFS= read -r line; do
+              case "$line" in
+                FINDING\|*) add_finding "${line#FINDING|}" ;;
+                WARNING\|*) printf '::warning::%s\n' "${line#WARNING|}" ;;
+                "") ;;
+                *) printf '%s\n' "$line" ;;
+              esac
+            done < "$RUNNER_TEMP/license-manifest-report.txt"
+
+            # Every bundled component must be notified in iso/COPYING and listed
+            # in the license policy, otherwise the manifest and the shipped
+            # notices disagree.
+            while IFS=$'\t' read -r component in_iso; do
+              [ -n "$component" ] || continue
+              [ "$in_iso" = "yes" ] || continue
+              if [ -s "$COPYING" ] && ! grep -qF -- "$component" "$COPYING"; then
+                add_finding "$COPYING: the bundled component '$component' from $manifest is not listed"
+              fi
+              if [ -s "$LICENSE_DOC" ] && ! grep -qiF -- "$component" "$LICENSE_DOC"; then
+                add_finding "$LICENSE_DOC: the bundled component '$component' from $manifest is not described"
+              fi
+            done < <(awk -F'\t' '!/^#/ { if (!header_seen) { header_seen = 1; next } if (NF == 9) print $1 "\t" $8 }' "$manifest")
+
+            # Patch files referenced by the manifest must exist in the tree.
+            while IFS=$'\t' read -r component patches; do
+              [ -n "$component" ] || continue
+              [ -n "$patches" ] || continue
+              IFS=',' read -r -a patch_list <<< "$patches"
+              for entry in "${patch_list[@]}"; do
+                entry="${entry// /}"
+                [ -n "$entry" ] || continue
+                if [ -e "$entry" ] || [ -e "patches/${component}/${entry}" ] || [ -e "scripts/patches/${component}/${entry}" ]; then
+                  continue
+                fi
+                printf '::warning::%s: patch "%s" of %s is not present in the tree\n' "$manifest" "$entry" "$component"
+              done
+            done < <(awk -F'\t' '!/^#/ { if (!header_seen) { header_seen = 1; next } if (NF == 9) print $1 "\t" $7 }' "$manifest")
+          fi
+
+      # ---------------------------------------------------------------------
+      # (d) iso/COPYING must carry the notices and pointers
+      # ---------------------------------------------------------------------
+      - name: Verify COPYING notices
+        run: |
+          set -uo pipefail
+          findings="$RUNNER_TEMP/license-findings.txt"
+          add_finding() {
+            printf '%s\n' "$1" >> "$findings"
+            printf '::error::%s\n' "$1"
+          }
+
+          if [ ! -s "$COPYING" ]; then
+            add_finding "$COPYING is missing or empty"
+            exit 0
+          fi
+
+          required=(
+            "Third-Party Software Licenses in SabakanOS"
+            "/usr/share/licenses/"
+            "GPL-2.0"
+            "GPL-3.0"
+            "LGPL-2.1"
+            "BSD-2-Clause"
+            "MIT"
+            "SIL OFL 1.1"
+            "Obtaining the Corresponding Source Code"
+          )
+          for keyword in "${required[@]}"; do
+            if ! grep -qF -- "$keyword" "$COPYING"; then
+              add_finding "$COPYING: \"$keyword\" is not stated"
+            fi
+          done
+
+          if ! grep -qiF -- "written offer" "$COPYING"; then
+            add_finding "$COPYING: the written offer route to the source is not described (see docs/license.md section 8)"
+          fi
+
+          if ! grep -qiE -- "corresponding source" "$COPYING"; then
+            add_finding "$COPYING: the obligation to provide the corresponding source is not stated"
+          fi
+
+      # ---------------------------------------------------------------------
+      # Documentation must state the clause numbers the policy relies on
+      # ---------------------------------------------------------------------
+      - name: Verify documentation statements
+        run: |
+          set -uo pipefail
+          findings="$RUNNER_TEMP/license-findings.txt"
+          add_finding() {
+            printf '%s\n' "$1" >> "$findings"
+            printf '::error::%s\n' "$1"
+          }
+
+          if [ ! -s "$LICENSE_DOC" ]; then
+            add_finding "$LICENSE_DOC is missing or empty"
+          else
+            for term in \
+              "License Compliance System" \
+              "GPL-2.0 section 3" \
+              "GPL-3.0 section 6" \
+              "LGPL-2.1 section 4" \
+              "LGPL-2.1 section 6" \
+              "written offer" \
+              "same server"; do
+              if ! grep -qiF -- "$term" "$LICENSE_DOC"; then
+                add_finding "$LICENSE_DOC: \"$term\" is not stated"
+              fi
+            done
+          fi
+
+          if [ ! -s "$SOURCE_FLOW" ]; then
+            add_finding "$SOURCE_FLOW is missing or empty"
+          else
+            for term in \
+              "collect-sources.sh" \
+              "generate-sbom.sh" \
+              "SOURCE-MANIFEST" \
+              "SBOM" \
+              "Corresponding Source" \
+              "written offer"; do
+              if ! grep -qF -- "$term" "$SOURCE_FLOW"; then
+                add_finding "$SOURCE_FLOW: \"$term\" is not stated"
+              fi
+            done
+          fi
+
+          # The documents are part of the English-facing documentation set.
+          python3 - "$LICENSE_DOC" "$SOURCE_FLOW" <<'PY' > "$RUNNER_TEMP/license-language.txt" || true
+          import pathlib
+          import sys
+
+          for name in sys.argv[1:]:
+              path = pathlib.Path(name)
+              if not path.is_file():
+                  continue
+              for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                  for char in line:
+                      if "\u3040" <= char <= "\u30ff" or "\u4e00" <= char <= "\u9fff" or "\uff01" <= char <= "\uff60":
+                          print(f"{name}:{number}: non-English text contains {char!r}")
+                          break
+          PY
+          while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            add_finding "$line"
+          done < "$RUNNER_TEMP/license-language.txt"
+
+      # ---------------------------------------------------------------------
+      # (c)/(d) Source tooling: the bundle and the SBOM must be reproducible
+      # ---------------------------------------------------------------------
+      - name: Verify source tooling
+        run: |
+          set -uo pipefail
+          findings="$RUNNER_TEMP/license-findings.txt"
+          add_finding() {
+            printf '%s\n' "$1" >> "$findings"
+            printf '::error::%s\n' "$1"
+          }
+
+          for script in "$COLLECT_SCRIPT" "$SBOM_SCRIPT"; do
+            if [ ! -e "$script" ]; then
+              if [ "$LICENSE_STRICT" = "1" ]; then
+                add_finding "$script is required to build the source bundle for a release but does not exist"
+              else
+                printf '::warning::%s does not exist yet; the source bundle must be produced manually (docs/source-flow.md section 6.3)\n' "$script"
+              fi
+              continue
+            fi
+            if [ ! -x "$script" ]; then
+              add_finding "$script is not executable (chmod +x)"
+            fi
+            if ! bash -n "$script"; then
+              add_finding "$script has a shell syntax error"
+            fi
+          done
+
+          # A release must be reproducible from a pinned manifest, so the bundle
+          # inputs are checked for the columns the scripts consume.
+          if [ -s "$MANIFEST" ]; then
+            if ! grep -q "in_iso" "$MANIFEST"; then
+              add_finding "$MANIFEST has no in_iso column; $COLLECT_SCRIPT could collect the wrong components"
+            fi
+          fi
+
+          # When a collection result is present (a manual run on a release host
+          # or an artifact restored into the workspace), every component must
+          # report that it was collected.
+          collection=build/source-manifest.json
+          if [ ! -f "$collection" ]; then
+            printf '::notice::%s is not present in this checkout; the collection result is verified on the release host (docs/source-flow.md section 6.3)\n' "$collection"
+          elif ! command -v jq >/dev/null 2>&1; then
+            printf '::warning::jq is not available; %s could not be inspected\n' "$collection"
+          else
+            if ! jq empty "$collection" >/dev/null 2>&1; then
+              add_finding "$collection is not valid JSON"
+            else
+              while IFS= read -r line; do
+                [ -n "$line" ] || continue
+                add_finding "$collection: $line"
+              done < <(jq -r '.components[]? | select(.status != "collected") | "\(.name) reports status \(.status)"' "$collection")
+              if [ "$(jq '.components | length' "$collection" 2>/dev/null || echo 0)" = "0" ]; then
+                add_finding "$collection lists no components"
+              fi
+            fi
+            for output in build/SBOM.spdx.json build/SOURCE-MANIFEST.json; do
+              if [ -f "$output" ] && ! jq empty "$output" >/dev/null 2>&1; then
+                add_finding "$output is not valid JSON"
+              fi
+            done
+          fi
+
+      # ---------------------------------------------------------------------
+      # Gate: any remaining finding stops the run (and therefore the release)
+      # ---------------------------------------------------------------------
+      - name: Report findings
+        if: always()
+        run: |
+          set -uo pipefail
+          findings="$RUNNER_TEMP/license-findings.txt"
+
+          count=0
+          if [ -s "$findings" ]; then
+            count=$(grep -c '' "$findings" || true)
+          fi
+
+          {
+            echo ""
+            echo "### Findings"
+            echo ""
+            if [ "$count" -eq 0 ]; then
+              echo "No findings. Every package has a license record, every bundled"
+              echo "component has source provenance, and \`$COPYING\` carries the"
+              echo "required notices."
+            else
+              echo "\`\`\`"
+              cat "$findings"
+              echo "\`\`\`"
+              echo ""
+              echo "Fix the records rather than the check: add the license row to"
+              echo "\`docs/license.md\` and \`iso/COPYING\`, add the component to the"
+              echo "manifest with a pinned version and hash, or install the missing"
+              echo "license text. Policy: \`docs/license.md\` section 8. Process:"
+              echo "\`docs/source-flow.md\` section 10."
+            fi
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "findings: $count (mode: ${LICENSE_MODE:-unknown})"
+          if [ "$count" -gt 0 ]; then
+            echo "::error::license compliance check found $count issue(s); the release is blocked"
+            exit 1
+          fi

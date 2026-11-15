@@ -27,11 +27,17 @@ jobs:
     permissions:
       contents: read
 
+  license-check:
+    name: ライセンスコンプライアンスチェック
+    uses: ./.github/workflows/license-check.yml
+    permissions:
+      contents: read
+
   release:
     name: Release 作成
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    needs: ci
+    needs: [ci, license-check]
     permissions:
       contents: write
     steps:

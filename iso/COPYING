@@ -180,7 +180,7 @@ build (config/kernel-defconfig, config/buildroot-defconfig), any patches, and
 the build scripts.
 
   Distribution page:
-    https://github.com/ryotagtagtag-wq/sabakan-os/releases
+    https://github.com/ryopc/sabakan-os/releases
 
   Each release is published with the following files:
     - sabakanos-<version>-x86_64.iso
@@ -206,7 +206,7 @@ the build scripts.
 --------------------------------------------------------------------------------
 
   SabakanOS Project
-  https://github.com/ryotagtagtag-wq/sabakan-os
+  https://github.com/ryopc/sabakan-os
 
   License questions are accepted as issues in the repository.
 

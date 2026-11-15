@@ -57,6 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
           iso=$(find dist -type f -name 'sabakanos.iso' -print -quit)
           if [ -z "$iso" ]; then
             echo "::warning::ISO が見つかりません。カーネルビルド未成功のため、ISO なしでリリースを継続します。"

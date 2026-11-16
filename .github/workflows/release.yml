@@ -140,7 +140,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          rm -f dist/.no-iso
           gh release create "${GITHUB_REF_NAME}" \
             --title "SabakanOS ${GITHUB_REF_NAME#v}" \
             --notes-file notes.md \

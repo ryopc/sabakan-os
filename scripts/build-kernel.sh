@@ -21,6 +21,9 @@ KERNEL_VERSION="6.12.34"
 KERNEL_TAR="linux-${KERNEL_VERSION}.tar.xz"
 KERNEL_URL="https://cdn.kernel.org/pub/linux/kernel/v6.x/${KERNEL_TAR}"
 
+# ホストOS判定 (macOS は darwin, Linux は linux)
+HOST_OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+
 if command -v gmake >/dev/null 2>&1; then
     _MAKE="gmake"
 else
@@ -31,49 +34,63 @@ BUILD_DIR="${ROOT}/build"
 SRC_DIR="${BUILD_DIR}/linux-${KERNEL_VERSION}"
 CONFIG_FILE="${ROOT}/config/kernel-defconfig"
 
-HOSTCFLAGS_BASE="-Iscripts/macos-include -I$(brew --prefix libelf)/include -I${SRC_DIR}/arch/x86/include/generated/uapi -I${SRC_DIR}/arch/x86/include/uapi -I${SRC_DIR}/include/uapi -Wno-undef -Wno-incompatible-pointer-types -Wno-macro-redefined"
-HOSTCFLAGS_FULL="${HOSTCFLAGS_BASE} -include ${SRC_DIR}/scripts/macos-include/endian.h"
-AR_WRAPPER="${ROOT}/scripts/ar-wrapper.sh"
-LLD="ld.lld"
+# macOS 用互換ヘッダ (macOS のみ)
+if [ "$HOST_OS" = "darwin" ]; then
+    HOSTCFLAGS_BASE="-Iscripts/macos-include -I$(brew --prefix libelf)/include -I${SRC_DIR}/arch/x86/include/generated/uapi -I${SRC_DIR}/arch/x86/include/uapi -I${SRC_DIR}/include/uapi -Wno-undef -Wno-incompatible-pointer-types -Wno-macro-redefined"
+    HOSTCFLAGS_FULL="${HOSTCFLAGS_BASE} -include ${SRC_DIR}/scripts/macos-include/endian.h"
+    LLD="ld.lld"
+    LLVM_PREFIX="$(brew --prefix llvm 2>/dev/null || echo /opt/homebrew/opt/llvm)"
+    export PATH="${LLVM_PREFIX}/bin:${PATH}"
+else
+    # Linux (Ubuntu など): 通常のインクルードパス
+    HOSTCFLAGS_BASE="-I${SRC_DIR}/arch/x86/include/generated/uapi -I${SRC_DIR}/arch/x86/include/uapi -I${SRC_DIR}/include/uapi -Wno-undef -Wno-incompatible-pointer-types -Wno-macro-redefined"
+    HOSTCFLAGS_FULL="${HOSTCFLAGS_BASE}"
+    LLD="ld.lld"
+fi
 
-LLVM_PREFIX="$(brew --prefix llvm 2>/dev/null || echo /opt/homebrew/opt/llvm)"
-export PATH="${LLVM_PREFIX}/bin:${PATH}"
+AR_WRAPPER="${ROOT}/scripts/ar-wrapper.sh"
 
 log()  { printf '[build-kernel] %s\n' "$*"; }
 warn() { printf '[build-kernel][警告] %s\n' "$*" >&2; }
 err()  { printf '[build-kernel][エラー] %s\n' "$*" >&2; }
 
+# Python3 を使ったクロスプラットフォーム対応のファイル置換/挿入
+#   $1: 対象ファイル, $2: 操作 (replace|insert_before|insert_after),
+#   $3: 正規表現パターン, $4: 置換/挿入文字列
 python3_patch() {
-    # Python3 を使ってクロスプラットフォーム対応のファイル置換/挿入を行う
-    # $1: 対象ファイル, $2: 操作 (replace|insert_before|insert_after), $3: 検索パターン, $4: 置換/挿入文字列
-    python3 -c "
+    python3 - "$1" "$2" "$3" "$4" <<'PYEOF'
 import sys
+import re
+
 path = sys.argv[1]
 op = sys.argv[2]
 pattern = sys.argv[3]
 replacement = sys.argv[4]
-with open(path, 'r', encoding='utf-8', errors='replace') as f:
-    lines = f.readlines()
+
+try:
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+        lines = f.readlines()
+except FileNotFoundError:
+    sys.exit(0)
+
 result = []
-inserted = False
 for line in lines:
-    if op == 'replace' and pattern in line:
-        result.append(replacement)
-    elif op == 'insert_before' and pattern in line:
-        result.append(replacement)
+    matched = re.search(pattern, line)
+    if op == 'replace' and matched:
+        # 元の行末尾の改行を保持
+        result.append(replacement + '\n')
+    elif op == 'insert_before' and matched:
+        result.append(replacement + '\n')
         result.append(line)
-        inserted = True
-    elif op == 'insert_after' and pattern in line:
+    elif op == 'insert_after' and matched:
         result.append(line)
-        result.append(replacement)
-        inserted = True
+        result.append(replacement + '\n')
     else:
         result.append(line)
-if op == 'replace' and not any(pattern in l for l in lines):
-    result.append(replacement)
+
 with open(path, 'w', encoding='utf-8') as f:
     f.writelines(result)
-" "$1" "$2" "$3" "$4" 2>/dev/null || true
+PYEOF
 }
 
 mkdir -p "${BUILD_DIR}"
@@ -96,13 +113,15 @@ fi
 
 cd "${SRC_DIR}"
 
-# ---- 1.5. macOS ビルドパッチ適用 (seiya.me) ----
-log "macOS ビルドパッチを適用中 (seiya.me)..."
-mkdir -p scripts/macos-include
-cp "${ROOT}/scripts/macos-include/elf.h" scripts/macos-include/elf.h
-cp "${ROOT}/scripts/macos-include/byteswap.h" scripts/macos-include/byteswap.h
-cp "${ROOT}/scripts/macos-include/endian.h" scripts/macos-include/endian.h
-cp "${ROOT}/scripts/macos-include/kernel_compat.h" scripts/macos-include/kernel_compat.h
+# ---- 1.5. macOS ビルドパッチ適用 (macOS のみ) ----
+if [ "$HOST_OS" = "darwin" ]; then
+    log "macOS ビルドパッチを適用中 (seiya.me)..."
+    mkdir -p scripts/macos-include
+    cp "${ROOT}/scripts/macos-include/elf.h" scripts/macos-include/elf.h
+    cp "${ROOT}/scripts/macos-include/byteswap.h" scripts/macos-include/byteswap.h
+    cp "${ROOT}/scripts/macos-include/endian.h" scripts/macos-include/endian.h
+    cp "${ROOT}/scripts/macos-include/kernel_compat.h" scripts/macos-include/kernel_compat.h
+fi
 
 # scripts/mod/file2alias.c の _UUID_T / uuid_t int パッチ (二重適用防止ガード付き)
 if [ -f scripts/mod/file2alias.c ]; then
@@ -124,7 +143,7 @@ if ${_MAKE} ARCH=x86_64 LLVM=1 CC="clang -target x86_64-linux-gnu" HOSTCC=clang 
     log "レーンA カーネル設定を適用中: ${CONFIG_FILE}"
     grep -v '^[[:space:]]*#' "${CONFIG_FILE}" | grep -v '^[[:space:]]*$' >> .config 2>/dev/null || true
 
-    # objtool と stack validation は macOS (arm64) ホストでビルド不可のため無効化
+    # objtool と stack validation はビルドに失敗するため無効化 (bzImage 生成には不要)
     python3_patch .config replace '^CONFIG_OBJTOOL=' 'CONFIG_OBJTOOL=n'
     python3_patch .config replace '^CONFIG_STACK_VALIDATION=' 'CONFIG_STACK_VALIDATION=n'
     if ! grep -q '^CONFIG_OBJTOOL=' .config 2>/dev/null; then

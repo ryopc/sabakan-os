@@ -215,7 +215,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential bc bison flex libelf-dev libssl-dev dwarves \
-            cpio kmod rsync curl wget xz-utils git make zstd
+            cpio kmod rsync curl wget xz-utils git make zstd \
+            clang llvm lld
 
       - name: ビルド環境の情報
         run: |

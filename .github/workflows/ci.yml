@@ -382,12 +382,14 @@ jobs:
             OBJDUMP_FOR_TARGET=x86_64-linux-gnu-objdump \
             STRIP=x86_64-linux-gnu-strip \
             READELF_FOR_TARGET=x86_64-linux-gnu-readelf \
-            NM_FOR_TARGET=x86_64-linux-gnu-nm
-          make limine-bios-cd limine-bios-sys limine-uefi-cd
+              NM_FOR_TARGET=x86_64-linux-gnu-nm
+          make bin/limine-bios-cd.bin
+          make bin/limine-bios.sys
+          make bin/limine-uefi-cd.bin
           cp bin/limine-bios-cd.bin ../limine-bios-cd.bin
           cp bin/limine-bios.sys ../limine-bios.sys
           cp bin/limine-uefi-cd.bin ../limine-uefi-cd.bin
-          cp ../limine-12.9.6/common-uefi-x86-64/BOOTX64.EFI ../limine-efi.sys
+          cp common-uefi-x86-64/BOOTX64.EFI ../limine-efi.sys
           cd ../..
           ls -la build/limine/
 

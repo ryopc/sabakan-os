@@ -121,18 +121,18 @@ if [ "$HOST_OS" = "darwin" ]; then
     cp "${ROOT}/scripts/macos-include/byteswap.h" scripts/macos-include/byteswap.h
     cp "${ROOT}/scripts/macos-include/endian.h" scripts/macos-include/endian.h
     cp "${ROOT}/scripts/macos-include/kernel_compat.h" scripts/macos-include/kernel_compat.h
-fi
 
-# scripts/mod/file2alias.c の _UUID_T / uuid_t int パッチ (二重適用防止ガード付き)
-if [ -f scripts/mod/file2alias.c ]; then
-    if ! grep -q '^#define _UUID_T$' scripts/mod/file2alias.c 2>/dev/null; then
-        python3_patch scripts/mod/file2alias.c insert_before '^#include "modpost.h"' '#define _UUID_T
+    # scripts/mod/file2alias.c の _UUID_T / uuid_t int パッチ (二重適用防止ガード付き)
+    if [ -f scripts/mod/file2alias.c ]; then
+        if ! grep -q '^#define _UUID_T$' scripts/mod/file2alias.c 2>/dev/null; then
+            python3_patch scripts/mod/file2alias.c insert_before '^#include "modpost.h"' '#define _UUID_T
 #define uuid_t int'
+        fi
+        if ! grep -q '^#undef uuid_t$' scripts/mod/file2alias.c 2>/dev/null; then
+            python3_patch scripts/mod/file2alias.c insert_after '^#include "devicetable-offsets.h"' '#undef uuid_t'
+        fi
+        log "scripts/mod/file2alias.c に uuid_t パッチを適用しました"
     fi
-    if ! grep -q '^#undef uuid_t$' scripts/mod/file2alias.c 2>/dev/null; then
-        python3_patch scripts/mod/file2alias.c insert_after '^#include "devicetable-offsets.h"' '#undef uuid_t'
-    fi
-    log "scripts/mod/file2alias.c に uuid_t パッチを適用しました"
 fi
 
 # ---- 2. x86_64 defconfig をベースにレーンA設定を適用 ----
@@ -167,7 +167,7 @@ if ${_MAKE} ARCH=x86_64 LLVM=1 CC="clang -target x86_64-linux-gnu" HOSTCC=clang 
               tools/objtool/libsubcmd/include/subcmd/run-command.h \
               tools/objtool/libsubcmd/include/subcmd/exec-cmd.h 2>/dev/null || true
     fi
-    if [ -f scripts/sorttable.c ]; then
+    if [ "$HOST_OS" = "darwin" ] && [ -f scripts/sorttable.c ]; then
         : > scripts/sorttable.o 2>/dev/null || true
     fi
 
@@ -182,8 +182,10 @@ if ${_MAKE} ARCH=x86_64 LLVM=1 CC="clang -target x86_64-linux-gnu" HOSTCC=clang 
     perl -0pi -e 's/(\t\$\(AR\) cDPrST \$\@)/$1; \\\n\ttest -f \$@ || > \$@/' scripts/Makefile.build 2>/dev/null || true
 
     # scripts/sorttable.c は macOS で <linux/compiler-gcc.h> の直接インクルードエラーとなるため、
-    # <linux/compiler.h> に置き換え
-    python3_patch scripts/sorttable.c replace '#include "linux/compiler-gcc.h"' '#include "linux/compiler.h"'
+    # <linux/compiler.h> に置き換え (macOS のみ)
+    if [ "$HOST_OS" = "darwin" ] && [ -f scripts/sorttable.c ]; then
+        python3_patch scripts/sorttable.c replace '#include "linux/compiler-gcc.h"' '#include "linux/compiler.h"'
+    fi
 
     log ".config を作成しました: ${SRC_DIR}/.config"
 else

@@ -382,9 +382,8 @@ jobs:
             OBJDUMP_FOR_TARGET=x86_64-linux-gnu-objdump \
             STRIP=x86_64-linux-gnu-strip \
             READELF_FOR_TARGET=x86_64-linux-gnu-readelf \
-            NM_FOR_TARGET=x86_64-linux-gnu-nm \
-            >/dev/null 2>&1
-          make limine-bios-cd limine-bios-sys limine-uefi-cd >/dev/null 2>&1
+            NM_FOR_TARGET=x86_64-linux-gnu-nm
+          make limine-bios-cd limine-bios-sys limine-uefi-cd
           cp bin/limine-bios-cd.bin ../limine-bios-cd.bin
           cp bin/limine-bios.sys ../limine-bios.sys
           cp bin/limine-uefi-cd.bin ../limine-uefi-cd.bin

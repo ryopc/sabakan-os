@@ -326,8 +326,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential rsync curl wget xz-utils git make zstd \
-            xorriso mtools dosfstools cpio kmod
+            build-essential bc bison flex libelf-dev libssl-dev dwarves \
+            cpio kmod rsync curl wget xz-utils git make zstd \
+            xorriso mtools dosfstools \
+            gcc-x86-64-linux-gnu binutils-x86-64-linux-gnu nasm perl
 
       - name: カーネル成果物を取得
         uses: actions/download-artifact@v4
@@ -361,19 +363,34 @@ jobs:
           cp "$image" build/kernel
           ls -lh build/kernel
 
-      - name: Limine を取得
+      - name: Limine をソースからビルド
         run: |
           set -euo pipefail
           mkdir -p build/limine
-          url=$(curl -fsSL https://api.github.com/repos/limine-bootloader/limine/releases/latest \
-            | grep -o 'https://[^"]*limine-[0-9.]*-binary\.tar\.gz' | head -n 1 || true)
-          if [ -z "$url" ]; then
-            echo "::warning::Limine の取得先を特定できませんでした（レート制限または API 変更）"
-            exit 0
-          fi
-          curl -fsSL -o limine.tar.gz "$url"
-          tar -xzf limine.tar.gz -C build/limine --strip-components=1
-          find build/limine -maxdepth 1 -name 'limine-*.sys' -print
+          cd build/limine
+          LIMINE_VER="12.9.6"
+          curl -fsSL -o limine.tar.xz "https://github.com/limine-bootloader/limine/releases/download/v${LIMINE_VER}/limine-${LIMINE_VER}.tar.xz"
+          tar -xf limine.tar.xz
+          cd "limine-${LIMINE_VER}"
+          ./configure --host=x86_64-unknown-linux-gnu \
+            --enable-bios --enable-bios-cd --enable-bios-pxe \
+            --enable-uefi-x86-64 \
+            CC=x86_64-linux-gnu-gcc \
+            CC_FOR_TARGET=x86_64-linux-gnu-gcc \
+            LD_FOR_TARGET=x86_64-linux-gnu-ld \
+            OBJCOPY_FOR_TARGET=x86_64-linux-gnu-objcopy \
+            OBJDUMP_FOR_TARGET=x86_64-linux-gnu-objdump \
+            STRIP=x86_64-linux-gnu-strip \
+            READELF_FOR_TARGET=x86_64-linux-gnu-readelf \
+            NM_FOR_TARGET=x86_64-linux-gnu-nm \
+            >/dev/null 2>&1
+          make limine-bios-cd limine-bios-sys limine-uefi-cd >/dev/null 2>&1
+          cp bin/limine-bios-cd.bin ../limine-bios-cd.bin
+          cp bin/limine-bios.sys ../limine-bios.sys
+          cp bin/limine-uefi-cd.bin ../limine-uefi-cd.bin
+          cp ../limine-12.9.6/common-uefi-x86-64/BOOTX64.EFI ../limine-efi.sys
+          cd ../..
+          ls -la build/limine/
 
       - name: ISO をビルド
         run: ./scripts/build-iso.sh

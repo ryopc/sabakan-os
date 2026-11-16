@@ -224,16 +224,7 @@ jobs:
           df -h .
 
       - name: カーネルをビルド
-        run: |
-          # objtool と stack validation はビルドに失敗するため無効化（bzImage 生成には不要）
-          # sed -i '' は macOS (BSD sed) 専用のため Linux では動作しない。
-          # grep -v で既存行を削除してから追記することでクロスプラットフォーム対応。
-          KERNEL_DIR=$(ls -d build/linux-* | head -1)
-          grep -v '^CONFIG_OBJTOOL=' "$KERNEL_DIR/.config" > "$KERNEL_DIR/.config.tmp" 2>/dev/null && mv "$KERNEL_DIR/.config.tmp" "$KERNEL_DIR/.config" || true
-          echo 'CONFIG_OBJTOOL=n' >> "$KERNEL_DIR/.config"
-          grep -v '^CONFIG_STACK_VALIDATION=' "$KERNEL_DIR/.config" > "$KERNEL_DIR/.config.tmp" 2>/dev/null && mv "$KERNEL_DIR/.config.tmp" "$KERNEL_DIR/.config" || true
-          echo 'CONFIG_STACK_VALIDATION=n' >> "$KERNEL_DIR/.config"
-          make build-kernel
+        run: make build-kernel
 
       - name: 成果物の確認
         run: |

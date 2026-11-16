@@ -383,11 +383,12 @@ jobs:
             STRIP=x86_64-linux-gnu-strip \
             READELF_FOR_TARGET=x86_64-linux-gnu-readelf \
               NM_FOR_TARGET=x86_64-linux-gnu-nm
-          make
-          cp bin/limine-bios-cd.bin ../limine-bios-cd.bin
+          make limine-bios.sys
+          cp bin/limine-bios.sys ../limine-bios-cd.bin
           cp bin/limine-bios.sys ../limine-bios.sys
-          cp bin/limine-uefi-cd.bin ../limine-uefi-cd.bin
+          cp common-uefi-x86-64/BOOTX64.EFI ../limine-uefi-cd.bin
           cp common-uefi-x86-64/BOOTX64.EFI ../limine-efi.sys
+          ls -la ../limine-bios-cd.bin ../limine-bios.sys ../limine-uefi-cd.bin ../limine-efi.sys
           cd ../..
           ls -la build/limine/
 

@@ -316,6 +316,7 @@ jobs:
     timeout-minutes: 45
     needs:
       - build_rootfs
+      - build_kernel
     continue-on-error: true
     steps:
       - name: リポジトリを取得

@@ -65,11 +65,13 @@ make ARCH=x86_64 defconfig
 log "レーンA フラグメントを統合中: ${CONFIG_FRAGMENT}"
 scripts/kconfig/merge_config.sh -m -O . .config "${CONFIG_FRAGMENT}"
 
-# ---- 3. objtool を無効化 ----
+# ---- 3. objtool と stack validation を無効化 ----
 # x86_64 の既定 unwinder (ORC) は objtool を必要とするため、フレームポインタ方式へ切り替える。
-# 注意: これは既定の unwinder を変更する判断です。不要であれば次の2行を削除してください。
+# objtool と stack validation は GitHub Actions ランナーでビルドに失敗するため無効化。
+# 注意: これは既定の unwinder を変更する判断です。不要であれば次の3行を削除してください。
 scripts/config --disable UNWINDER_ORC --enable UNWINDER_FRAME_POINTER
 scripts/config --disable OBJTOOL
+scripts/config --disable STACKVALIDATION
 
 make ARCH=x86_64 olddefconfig
 
@@ -81,6 +83,7 @@ verify() {
     fi
 }
 verify "# CONFIG_OBJTOOL is not set"
+verify "# CONFIG_STACK_VALIDATION is not set"
 verify "CONFIG_UNWINDER_FRAME_POINTER=y"
 log "設定の検証に成功しました"
 

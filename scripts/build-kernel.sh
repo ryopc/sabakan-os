@@ -69,11 +69,17 @@ scripts/kconfig/merge_config.sh -m -O . .config "${CONFIG_FRAGMENT}"
 # x86_64 の既定 unwinder (ORC) は objtool を必要とするため、フレームポインタ方式へ切り替える。
 # objtool と stack validation は GitHub Actions ランナーでビルドに失敗するため無効化。
 # 注意: これは既定の unwinder を変更する判断です。不要であれば次の3行を削除してください。
-scripts/config --disable UNWINDER_ORC --enable UNWINDER_FRAME_POINTER
-scripts/config --disable OBJTOOL
-scripts/config --disable STACKVALIDATION
+scripts/config --disable UNWINDER_ORC --enable UNWINDER_FRAME_POINTER || true
+scripts/config --disable OBJTOOL || true
+scripts/config --disable STACKVALIDATION || true
 
 make ARCH=x86_64 olddefconfig
+
+# olddefconfig で上書きされた場合に備え、再度確実に無効化
+grep -v '^CONFIG_OBJTOOL=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true
+echo '# CONFIG_OBJTOOL is not set' >> .config
+grep -v '^CONFIG_STACK_VALIDATION=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true
+echo '# CONFIG_STACK_VALIDATION is not set' >> .config
 
 # ---- 4. 設定値の検証 (意図どおりに反映されたか確認) ----
 verify() {

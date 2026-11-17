@@ -384,9 +384,11 @@ jobs:
             READELF_FOR_TARGET=x86_64-linux-gnu-readelf \
               NM_FOR_TARGET=x86_64-linux-gnu-nm
           make
-          if [ -f bin/limine-bios.sys ]; then
-            cp bin/limine-bios.sys ../limine-bios.sys
-            cp bin/limine-bios.sys ../limine-bios-cd.bin
+          # Limine BIOS ブートイメージを探してコピー（場所はバージョンにより異なるため）
+          BIOS_SYS=$(find . -name "limine-bios.sys" 2>/dev/null | head -1)
+          if [ -n "$BIOS_SYS" ]; then
+            cp "$BIOS_SYS" ../limine-bios.sys
+            cp "$BIOS_SYS" ../limine-bios-cd.bin
           fi
           if [ -f common-uefi-x86-64/BOOTX64.EFI ]; then
             cp common-uefi-x86-64/BOOTX64.EFI ../limine-uefi-cd.bin

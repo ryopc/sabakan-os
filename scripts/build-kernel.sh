@@ -5,7 +5,7 @@
 # 対象: Ubuntu 24.04 (GitHub Actions ubuntu-24.04) など、ホストが x86_64 Linux の環境
 #
 # 前提パッケージ:
-#   sudo apt-get install -y build-essential flex bison libelf-dev libssl-dev bc dwarves
+#   sudo apt-get install -y build-essential bc bison flex libelf-dev libssl-dev bc dwarves
 #
 # 出力:
 #   build/linux-<VERSION>/arch/x86/boot/bzImage
@@ -61,9 +61,17 @@ cd "${SRC_DIR}"
 # ---- 2. 基準 defconfig + レーンA フラグメントを統合 ----
 log "x86_64 defconfig を生成中"
 make ARCH=x86_64 defconfig
+if [ ! -f .config ]; then
+    err "defconfig 生成後に .config が見つかりません。make ARCH=x86_64 defconfig が失敗した可能性があります。"
+    exit 1
+fi
 
 log "レーンA フラグメントを統合中: ${CONFIG_FRAGMENT}"
 scripts/kconfig/merge_config.sh -m -O . .config "${CONFIG_FRAGMENT}"
+if [ ! -f .config ]; then
+    err "merge_config.sh 実行後に .config が見つかりません。merge_config.sh が失敗した可能性があります。"
+    exit 1
+fi
 
 # ---- 3. objtool と stack validation を無効化 ----
 # x86_64 の既定 unwinder (ORC) は objtool を必要とするため、フレームポインタ方式へ切り替える。
@@ -73,7 +81,7 @@ scripts/config --disable UNWINDER_ORC --enable UNWINDER_FRAME_POINTER || true
 scripts/config --disable OBJTOOL || true
 scripts/config --disable STACKVALIDATION || true
 
-make ARCH=x86_64 olddefconfig
+yes "" | make ARCH=x86_64 olddefconfig
 
 # olddefconfig で上書きされた場合に備え、再度確実に無効化
 grep -v '^CONFIG_OBJTOOL=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true

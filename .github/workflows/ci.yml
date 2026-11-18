@@ -359,7 +359,8 @@ jobs:
             find build -maxdepth 3 -type f | head -n 20 || true
             exit 1
           fi
-          mkdir -p build/kernel
+          # build-iso.sh は $BUILD_DIR/kernel をファイル（-f）として探すため、
+          # ディレクトリではなくファイルとして直接コピーする
           cp "$image" build/kernel
           ls -lh build/kernel
 

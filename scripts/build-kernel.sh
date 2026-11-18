@@ -76,10 +76,18 @@ fi
 # ---- 3. objtool と stack validation を無効化 ----
 # x86_64 の既定 unwinder (ORC) は objtool を必要とするため、フレームポインタ方式へ切り替える。
 # objtool と stack validation は GitHub Actions ランナーでビルドに失敗するため無効化。
-# 注意: これは既定の unwinder を変更する判断です。不要であれば次の3行を削除してください。
+# 注意: これは既定の unwinder を変更する判断です。不要であれば次の行を削除してください。
+
+# defconfig 生成時点で無効化（defconfig 内の既存設定を上書き）
 scripts/config --disable UNWINDER_ORC --enable UNWINDER_FRAME_POINTER || true
 scripts/config --disable OBJTOOL || true
 scripts/config --disable STACKVALIDATION || true
+
+# olddefconfig で上書きされないよう、先に .config に直接書き込み
+grep -v '^CONFIG_OBJTOOL=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true
+echo '# CONFIG_OBJTOOL is not set' >> .config
+grep -v '^CONFIG_STACK_VALIDATION=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true
+echo '# CONFIG_STACK_VALIDATION is not set' >> .config
 
 yes "" | make ARCH=x86_64 olddefconfig
 
@@ -88,6 +96,22 @@ grep -v '^CONFIG_OBJTOOL=' .config > .config.tmp 2>/dev/null && mv .config.tmp .
 echo '# CONFIG_OBJTOOL is not set' >> .config
 grep -v '^CONFIG_STACK_VALIDATION=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true
 echo '# CONFIG_STACK_VALIDATION is not set' >> .config
+
+# ---- 4. 設定値の検証 (意図どおりに反映されたか確認) ----
+verify() {
+    if ! grep -q "^$1\$" .config; then
+        err "設定の検証に失敗しました: $1 が .config にありません"
+        exit 1
+    fi
+}
+verify "# CONFIG_OBJTOOL is not set"
+verify "# CONFIG_STACK_VALIDATION is not set"
+verify "CONFIG_UNWINDER_FRAME_POINTER=y"
+log "設定の検証に成功しました"
+
+# ---- 5. コンパイル ----
+log "カーネルをコンパイルします (並列数=${JOBS})"
+make ARCH=x86_64 -j"${JOBS}" bzImage
 
 # ---- 4. 設定値の検証 (意図どおりに反映されたか確認) ----
 verify() {

@@ -55,7 +55,6 @@ linux-kernel|6.12.34|GPL-2.0-only|https://cdn.kernel.org/pub/linux/kernel/v6.x/l
 busybox|1.37.0|GPL-2.0-only|https://busybox.net/downloads/busybox-1.37.0.tar.bz2|busybox-1.37.0.tar.bz2
 apk-tools|2.14.3|GPL-2.0-only|https://gitlab.alpinelinux.org/alpine/apk-tools/-/archive/v2.14.3/apk-tools-v2.14.3.tar.gz|apk-tools-v2.14.3.tar.gz
 alpine-baselayout|3.7.2|GPL-2.0-only|https://gitlab.alpinelinux.org/alpine/aports/-/archive/master/aports-master.tar.gz|aports-master.tar.gz
-wireless-tools|30.pre9|GPL-2.0-only|https://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/wireless_tools.30.pre9.tar.gz|wireless_tools.30.pre9.tar.gz
 iptables|1.8.7|GPL-2.0-only|https://www.netfilter.org/pub/iptables/iptables-1.8.7.tar.bz2|iptables-1.8.7.tar.bz2
 iproute2|5.15.0|GPL-2.0-or-later|https://github.com/shemminger/iproute2/archive/refs/tags/v5.15.0.tar.gz|iproute2-5.15.0.tar.gz
 '

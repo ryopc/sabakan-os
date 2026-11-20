@@ -19,7 +19,7 @@ Key components:
 
 | Layer | Choice |
 |-------|--------|
-| Kernel | Linux 6.18.63 (kernel.org LTS, x86_64) |
+| Kernel | Linux 6.12.34 (kernel.org LTS, x86_64) |
 | C library | musl |
 | Base utilities / shell | BusyBox (`/bin/sh` is ash) |
 | Init | OpenRC |
@@ -33,7 +33,7 @@ Key components:
 
 | Feature | Status | Where it lives |
 |---------|--------|----------------|
-| Kernel build | Implemented | `make build-kernel` → `build/linux-6.18.63/` |
+| Kernel build | Implemented | `make build-kernel` → `build/linux-6.12.34/` |
 | Root filesystem generation | Implemented (skeleton) | `make build-rootfs` → `rootfs/` |
 | ISO generation | Implemented | `scripts/build-iso.sh` → `build/sabakanos.iso` |
 | QEMU boot check | Implemented | `scripts/run-qemu.sh` |
@@ -83,7 +83,7 @@ make build-rootfs
 
 # 3. Generate the ISO (after staging the kernel and Limine in place)
 mkdir -p build/kernel
-cp build/linux-6.18.63/arch/x86/boot/bzImage build/kernel
+cp build/linux-6.12.34/arch/x86/boot/bzImage build/kernel
 ./scripts/build-iso.sh
 
 # 4. Verify the boot in QEMU
@@ -137,7 +137,7 @@ brew install make xz xorriso
 | Target | Status | Description | Output |
 |--------|--------|-------------|--------|
 | `make help` | Implemented | List the available targets | — |
-| `make build-kernel` | Implemented | Fetch Linux 6.18.63, apply `config/kernel-defconfig`, and build | `build/linux-6.18.63/arch/x86/boot/bzImage` |
+| `make build-kernel` | Implemented | Fetch Linux 6.12.34, apply `config/kernel-defconfig`, and build | `build/linux-6.12.34/arch/x86/boot/bzImage` |
 | `make build-rootfs` | Implemented | Generate the root filesystem from the Buildroot defconfig or the skeleton | `rootfs/` |
 | `make clean` | Implemented | Remove `build/`, `rootfs/` and `tool/` | — |
 | `make iso` | Not implemented | Run `./scripts/build-iso.sh` directly for now | `build/sabakanos.iso` |
@@ -155,10 +155,10 @@ make build-kernel
 
 `scripts/build-kernel.sh` performs the following steps.
 
-1. Fetch `linux-6.18.63.tar.xz` from kernel.org (unpacked into `build/`)
+1. Fetch `linux-6.12.34.tar.xz` from kernel.org (unpacked into `build/`)
 2. Apply `config/kernel-defconfig` to `.config` (`olddefconfig`)
 3. Compile with `make bzImage`
-4. Emit `build/linux-6.18.63/arch/x86/boot/bzImage`
+4. Emit `build/linux-6.12.34/arch/x86/boot/bzImage`
 
 Expect 10 to 20 minutes on 4 cores. On a host without a cross compiler, the build stops after step 3 and exits successfully.
 
@@ -191,7 +191,7 @@ ISO generation needs the following inputs. The script searches the candidate pat
 
 | Input | Candidate paths | Notes |
 |-------|-----------------|-------|
-| Kernel | `build/kernel`, `build/bzImage`, `rootfs/boot/kernel` | `make build-kernel` writes `build/linux-6.18.63/arch/x86/boot/bzImage`, so copy it to `build/kernel` |
+| Kernel | `build/kernel`, `build/bzImage`, `rootfs/boot/kernel` | `make build-kernel` writes `build/linux-6.12.34/arch/x86/boot/bzImage`, so copy it to `build/kernel` |
 | initramfs | `build/initramfs.img`, `build/initrd.img` | Optional. The ISO can be generated without it |
 | Limine binaries | `build/limine/`, `boot/limine/`, `third_party/limine/`, `$LIMINE_DIR` | `limine-bios.sys` and `limine-efi.sys` are required |
 | Configuration | `boot/limine.cfg` | Boot entry definitions |
@@ -416,7 +416,7 @@ test -f iso/COPYING && test -f docs/requirements.md && test -f docs/license.md
 | The Buildroot download fails | With restricted network access the script switches to skeleton generation automatically. Check the `[警告]` (warning) lines in the log |
 | `ISO 作成ツールが見つかりません` (no ISO creation tool found) | Install `xorriso` (macOS: `brew install xorriso`) |
 | `Limine ブートローダ本体が見つかりません` (Limine binaries not found) | Place `limine-bios.sys` and `limine-efi.sys` in `build/limine/`, or set `LIMINE_DIR` |
-| `カーネルイメージが見つかりません` (kernel image not found) | Run `cp build/linux-6.18.63/arch/x86/boot/bzImage build/kernel` |
+| `カーネルイメージが見つかりません` (kernel image not found) | Run `cp build/linux-6.12.34/arch/x86/boot/bzImage build/kernel` |
 | `rootfs/bin/sh` is a broken link | The `busybox` binary is missing. Wait for the Buildroot build to finish, or place `busybox` in `rootfs/bin/` |
 | No shell appears after booting from the ISO | Check `KERNEL_PATH` and `CMDLINE` in `boot/limine.cfg`, and the staged `boot/kernel` |
 

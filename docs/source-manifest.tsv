@@ -3,12 +3,14 @@
 # 使い方: このファイルを docs/source-manifest.tsv にコピーし、実際の値で埋める
 # 注意: '#' で始まる行はコメントとして扱う。値が未確定の間は TBD と書かず、行を削除する
 component	version	license	upstream_url	source_url	sha256	patches	in_iso	notes
-linux-kernel	6.18.63	GPL-2.0-only	https://www.kernel.org	https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.18.63.tar.xz	0000000000000000000000000000000000000000000000000000000000000000	config/kernel-defconfig	yes	カーネル設定は config/kernel-defconfig を適用
-busybox	1.37.0	GPL-2.0-only	https://busybox.net	https://busybox.net/downloads/busybox-1.37.0.tar.bz2	0000000000000000000000000000000000000000000000000000000000000000		yes	ビルド時 .config を併せて提供する
-musl	1.2.5	MIT	https://musl.libc.org	https://musl.libc.org/releases/musl-1.2.5.tar.gz	0000000000000000000000000000000000000000000000000000000000000000		yes	
-openrc	0.56	BSD-2-Clause	https://github.com/OpenRC/openrc	https://github.com/OpenRC/openrc/archive/refs/tags/0.56.tar.gz	0000000000000000000000000000000000000000000000000000000000000000		yes	
-apk-tools	2.14.4	GPL-2.0-only	https://gitlab.alpinelinux.org/alpine/apk-tools	https://gitlab.alpinelinux.org/alpine/apk-tools/-/archive/v2.14.4/apk-tools-v2.14.4.tar.gz	0000000000000000000000000000000000000000000000000000000000000000		yes	
-alpine-baselayout	3.7.2	GPL-2.0-only	https://gitlab.alpinelinux.org/alpine/aports	https://gitlab.alpinelinux.org/alpine/aports/-/archive/master/aports-master.tar.gz	0000000000000000000000000000000000000000000000000000000000000000		yes	main/alpine-baselayout の APKBUILD とファイルを抜粋して提供
-limine	8.x	BSD-2-Clause	https://github.com/limine-bootloader/limine	https://github.com/limine-bootloader/limine/releases	0000000000000000000000000000000000000000000000000000000000000000		yes	limine-bios.sys / limine-efi.sys を同梱
-buildroot	2026.08.1	GPL-2.0-or-later	https://buildroot.org	https://buildroot.org/downloads/buildroot-2026.08.1.tar.xz	0000000000000000000000000000000000000000000000000000000000000000		no	ビルドホスト専用（ISO 非同梱）
-xorriso	1.5.x	GPL-3.0-or-later	https://www.gnu.org/software/xorriso	https://ftp.gnu.org/gnu/xorriso/xorriso-1.5.x.tar.gz	0000000000000000000000000000000000000000000000000000000000000000		no	ビルドホスト専用（ISO 非同梱）
+linux-kernel	6.12.34	GPL-2.0-only	https://www.kernel.org	https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.12.34.tar.xz	a7f3fe381f67eca4172e9b63efb61a14bd7f9e1278e03603d0ff5a93f270c24d	config/kernel-defconfig	yes	カーネル設定は config/kernel-defconfig を適用
+busybox	1.37.0	GPL-2.0-only	https://busybox.net	https://busybox.net/downloads/busybox-1.37.0.tar.bz2	3311dff32e746499f4df0d5df04d7eb396382d7e108bb9250e7b519b837043a4		yes	ビルド時 .config を併せて提供する
+musl	1.2.5	MIT	https://musl.libc.org	https://musl.libc.org/releases/musl-1.2.5.tar.gz	a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4		yes	
+openrc	0.56	BSD-2-Clause	https://github.com/OpenRC/openrc	https://github.com/OpenRC/openrc/archive/refs/tags/0.56.tar.gz	a06b530290057637eab17fc943cbf79c0335eb734ba71ece38b9f3acd8a341d4		yes	
+apk-tools	2.14.3	GPL-2.0-only	https://gitlab.alpinelinux.org/alpine/apk-tools	https://gitlab.alpinelinux.org/alpine/apk-tools/-/archive/v2.14.3/apk-tools-v2.14.3.tar.gz	5391ad16a7941c6550f098d282c6c9bbb8afdb5edd3e971d679a2e3a2fb5eb86		yes	
+alpine-baselayout	3.7.2	GPL-2.0-only	https://gitlab.alpinelinux.org/alpine/aports	https://gitlab.alpinelinux.org/alpine/aports/-/archive/master/aports-master.tar.gz	b71f978b0b7838b830dc271f447921b6a9c9387bf2d0929c311cedbbe76930ab		yes	main/alpine-baselayout の APKBUILD とファイルを抜粋して提供
+iptables	1.8.7	GPL-2.0-only	https://www.netfilter.org/projects/iptables/	https://www.netfilter.org/pub/iptables/iptables-1.8.7.tar.bz2	c109c96bb04998cd44156622d36f8e04b140701ec60531a10668cfdff5e8d8f0		yes	netfilter 公式 tarball
+iproute2	5.15.0	GPL-2.0-or-later	https://wiki.linuxfoundation.org/networking/iproute2	https://github.com/shemminger/iproute2/archive/refs/tags/v5.15.0.tar.gz	e10161fabe68714b34d565b6efff41b987ffec077f79beec497688c155881ea6		yes	GitHub タグ tarball (v5.15.0)
+limine	8.7.0	BSD-2-Clause	https://github.com/limine-bootloader/limine	https://github.com/Limine-Bootloader/Limine/releases/download/v8.7.0/limine-8.7.0.tar.xz	e30c14c35063cbd79b69ed9e05a2843a4ee1d6543424aae8515ad90b7c6e0e70		yes	limine-bios.sys / limine-efi.sys を同梱
+buildroot	2026.08.1	GPL-2.0-or-later	https://buildroot.org	https://buildroot.org/downloads/buildroot-2026.08.1.tar.xz	34fb7bea8a213ffde39cc02e61703391560f26e0850f03138c722d0b09880f2b		no	ビルドホスト専用（ISO 非同梱）
+xorriso	1.5.6	GPL-3.0-or-later	https://www.gnu.org/software/xorriso	https://ftp.gnu.org/gnu/xorriso/xorriso-1.5.6.tar.gz	d4b6b66bd04c49c6b358ee66475d806d6f6d7486e801106a47d331df1f2f8feb		no	ビルドホスト専用（ISO 非同梱）

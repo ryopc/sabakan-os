@@ -55,7 +55,7 @@ The "Status" column means:
 
 | Component | Status | License | Obligations on distribution | Source |
 |-----------|--------|---------|-----------------------------|--------|
-| Linux kernel 6.18.63 | Bundled | GPL-2.0-only | Ship the full license text, provide the corresponding source, disclose modifications (`config/kernel-defconfig`) | kernel.org |
+| Linux kernel 6.12.34 | Bundled | GPL-2.0-only | Ship the full license text, provide the corresponding source, disclose modifications (`config/kernel-defconfig`) | kernel.org |
 | BusyBox | Bundled | GPL-2.0-only | Provide the corresponding source (including the build-time `.config`) | busybox.net |
 | musl libc | Bundled | MIT | Ship the copyright notice and the full license text | musl-libc.org |
 | OpenRC | Bundled | BSD-2-Clause | Ship the copyright notice and the full license text | github.com/OpenRC/openrc |

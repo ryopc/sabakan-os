@@ -146,6 +146,42 @@ EOF
 
 echo "sabakan" > "${TARGET}/etc/hostname"
 
+# ---- 5b. 日本語環境設定 (ja_JP.UTF-8, Asia/Tokyo, jp106) ----
+# ロケール
+mkdir -p "${TARGET}/etc/profile.d"
+cat > "${TARGET}/etc/locale.conf" <<'EOF'
+# SabakanOS 日本語ロケール
+LANG=ja_JP.UTF-8
+LC_TIME=ja_JP.UTF-8
+LC_NUMERIC=ja_JP.UTF-8
+LC_MONETARY=ja_JP.UTF-8
+LC_PAPER=ja_JP.UTF-8
+LC_MEASUREMENT=ja_JP.UTF-8
+EOF
+
+# タイムゾーン
+echo "Asia/Tokyo" > "${TARGET}/etc/timezone"
+ln -sf ../usr/share/zoneinfo/Asia/Tokyo "${TARGET}/etc/localtime" 2>/dev/null || true
+
+# キーボード (106キー / 日本語)
+cat > "${TARGET}/etc/vconsole.conf" <<'EOF'
+KEYMAP=jp106
+EOF
+mkdir -p "${TARGET}/etc/conf.d"
+cat > "${TARGET}/etc/conf.d/keymaps" <<'EOF'
+# SabakanOS キーボード設定
+keymap="jp106"
+EOF
+
+# プロファイル用ロケール環境変数
+cat > "${TARGET}/etc/profile.d/locale.sh" <<'EOF'
+# SabakanOS ロケール環境変数
+export LANG=ja_JP.UTF-8
+export LC_ALL=ja_JP.UTF-8
+export LC_CTYPE=ja_JP.UTF-8
+export TZ=Asia/Tokyo
+EOF
+
 # ---- 6. 起動スクリプト rcS ----
 cat > "${TARGET}/etc/init.d/rcS" <<'EOF'
 #!/bin/sh
@@ -164,5 +200,5 @@ ln -sf busybox "${TARGET}/bin/sh"
 
 log "完了: ルートファイルシステムを生成しました -> ${TARGET}"
 log "ディレクトリ: bin sbin etc usr/bin usr/sbin usr/lib lib lib64 var proc sys dev boot home root tmp opt"
-log "主なファイル: init, etc/passwd, etc/group, etc/shadow, etc/fstab, etc/inittab, etc/profile, etc/init.d/rcS"
+log "主なファイル: init, etc/passwd, etc/group, etc/shadow, etc/fstab, etc/inittab, etc/profile, etc/profile.d/locale.sh, etc/locale.conf, etc/timezone, etc/vconsole.conf, etc/init.d/rcS"
 exit 0

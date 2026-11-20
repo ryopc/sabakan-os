@@ -1,0 +1,35 @@
+# SabakanOS レーンA — Linux カーネル設定 (arm64 専用)
+# arm64 アーキテクチャ固有の設定。
+# 実際のビルドでは arm64_defconfig を適用した上で、
+# kernel-defconfig-common と本ファイルを olddefconfig で上書き・補完する。
+
+# 使用例 (カーネルソースディレクトリで):
+#   make ARCH=arm64 defconfig
+#   cat ../../config/kernel-defconfig-common >> .config
+#   cat ../../config/kernel-defconfig-arm64 >> .config
+#   make ARCH=arm64 olddefconfig
+
+CONFIG_ARM64=y
+CONFIG_64BIT=y
+
+CONFIG_ARM64_PAGE_SHIFT=12
+CONFIG_ARM64_VA_BITS=48
+CONFIG_ARM64_PA_BITS=48
+
+CONFIG_SERIAL_AMBA_PL010=y
+CONFIG_SERIAL_AMBA_PL011=y
+CONFIG_SERIAL_AMBA_PL011_CONSOLE=y
+
+CONFIG_PCI=y
+CONFIG_PCI_DOMAINS=y
+CONFIG_PCIE_HOST_GENERIC=y
+
+CONFIG_VT=y
+CONFIG_VT_CONSOLE=y
+CONFIG_VT_CONSOLE_SLEEP=y
+CONFIG_HW_CONSOLE=y
+
+CONFIG_BLK_DEV_SD=y
+CONFIG_SCSI_MOD=y
+
+CONFIG_EXT4_FS=y

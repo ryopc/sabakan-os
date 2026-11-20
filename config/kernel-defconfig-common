@@ -1,0 +1,37 @@
+# SabakanOS レーンA — Linux カーネル設定 (共通)
+# 全アーキテクチャで共通の最小構成。
+# 実際のビルドでは <ARCH>_defconfig を適用した上で、
+# 本ファイルとアーキテクチャ別フラグメントを olddefconfig で上書き・補完する。
+
+# 使用例 (カーネルソースディレクトリで):
+#   make ARCH=x86_64 defconfig
+#   cat ../../config/kernel-defconfig-common >> .config
+#   cat ../../config/kernel-defconfig-x86_64 >> .config
+#   make ARCH=x86_64 olddefconfig
+
+CONFIG_BINFMT_ELF=y
+CONFIG_BINFMT_SCRIPT=y
+CONFIG_COREDUMP=y
+
+CONFIG_PRINTK=y
+CONFIG_CONSOLE=y
+CONFIG_CONSOLE_SLEEP=y
+
+CONFIG_MODULES=n
+CONFIG_BLOCK=y
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_BLK_DEV_SD=y
+
+CONFIG_EXT4_FS=y
+CONFIG_PROC_FS=y
+CONFIG_SYSFS=y
+CONFIG_TMPFS=y
+
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+
+CONFIG_SMP=y
+CONFIG_HZ_250=y
+CONFIG_HZ=250
+
+CONFIG_NET=n

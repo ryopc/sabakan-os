@@ -140,12 +140,19 @@ case "$ARCH" in
 esac
 
 # ---- 5. コンパイル ----
-# クロスコンパイル対応: CROSS_COMPILE 環境変数があれば使用
+# クロスコンパイル対応: arm64 ビルド時のみ CROSS_COMPILE を使用
+# x86_64 ビルド時は環境変数 CROSS_COMPILE が設定されていても無視し、ネイティブビルドする
 log "カーネルをコンパイルします (ARCH=${ARCH}, 並列数=${JOBS})"
-if [ -n "${CROSS_COMPILE:-}" ]; then
-    log "クロスコンパイラ: ${CROSS_COMPILE}"
-    make ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" -j"${JOBS}" ${KERNEL_TARGET}
+if [ "$ARCH" = "arm64" ]; then
+    if [ -n "${CROSS_COMPILE:-}" ]; then
+        log "クロスコンパイラ: ${CROSS_COMPILE}"
+        make ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" -j"${JOBS}" ${KERNEL_TARGET}
+    else
+        err "arm64 ビルドには CROSS_COMPILE 環境変数が必要です (例: aarch64-linux-gnu-)"
+        exit 1
+    fi
 else
+    log "ネイティブビルド: ${ARCH}"
     make ARCH="${ARCH}" -j"${JOBS}" ${KERNEL_TARGET}
 fi
 

@@ -242,9 +242,9 @@ jobs:
       - name: カーネルをビルド
         run: |
           if [ "${{ matrix.arch }}" = "arm64" ]; then
-            make build-kernel arm64 CROSS_COMPILE=aarch64-linux-gnu-
+            ARCH=arm64 make build-kernel CROSS_COMPILE=aarch64-linux-gnu-
           else
-            make build-kernel x86_64
+            make build-kernel
           fi
 
       - name: 成果物の確認

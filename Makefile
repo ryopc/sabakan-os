@@ -12,8 +12,8 @@ SHELL := /bin/sh
 
 all: help
 
-build-kernel:	## Linux カーネルをビルド (kernel.org LTS 6.12.34, x86_64)
-	@$(CURDIR)/scripts/build-kernel.sh
+build-kernel:	## Linux カーネルをビルド (ARCH 環境変数で指定, 既定 x86_64)
+	@ARCH="${ARCH:-x86_64}" $(CURDIR)/scripts/build-kernel.sh "$$ARCH"
 
 build-rootfs:	## ルートファイルシステムを生成 (rootfs/)
 	@$(CURDIR)/scripts/build-rootfs.sh

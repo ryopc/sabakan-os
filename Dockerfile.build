@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     xorriso \
     qemu-system-x86 \
+    qemu-system-arm \
     qemu-utils \
     bc \
     bison \
@@ -20,6 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     gcc-x86-64-linux-gnu \
     binutils-x86-64-linux-gnu \
+    gcc-aarch64-linux-gnu \
+    binutils-aarch64-linux-gnu \
     libelf-dev \
     && rm -rf /var/lib/apt/lists/*
 

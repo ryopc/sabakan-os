@@ -47,11 +47,11 @@ SabakanOS はこの負担をなくし、「軽量であること」と「日本�
 
 | ID | 要件 | 優先度 | 受け入れ条件 |
 |----|------|--------|--------------|
-| FR-001 | `make build-kernel` で Linux カーネルをビルドできる | M | `build/linux-6.18.63/arch/x86/boot/bzImage` が生成され、終了コードが 0（クロスコンパイラがない環境では `.config` の準備完了で正常終了） |
+| FR-001 | `make build-kernel` で Linux カーネルをビルドできる | M | `build/linux-6.12.34/arch/x86/boot/bzImage` が生成され、終了コードが 0（クロスコンパイラがない環境では `.config` の準備完了で正常終了） |
 | FR-002 | `make build-rootfs` でルートファイルシステムを構築できる | M | `rootfs/init`、`rootfs/bin/sh`、`rootfs/etc/passwd`、`rootfs/etc/hostname` が存在する |
 | FR-003 | `make build` / `make all` でカーネルとルートFSを一括ビルドできる | C | 上記 2 ターゲットを順に実行した結果と同一の成果物になる（現状 `all` は `help` の別名） |
 | FR-004 | ISO 生成スクリプトで BIOS / UEFI 両対応のハイブリッド ISO を生成できる | M | `scripts/build-iso.sh` が `build/sabakanos.iso` を生成し、QEMU で起動してシェルに到達する |
-| FR-005 | カーネル成果物を ISO 生成スクリプトが参照できる場所に配置する | S | `build/linux-6.18.63/arch/x86/boot/bzImage` が `build/kernel` など候補パスにコピーされる（現状は手動、自動化は未実装） |
+| FR-005 | カーネル成果物を ISO 生成スクリプトが参照できる場所に配置する | S | `build/linux-6.12.34/arch/x86/boot/bzImage` が `build/kernel` など候補パスにコピーされる（`scripts/build-kernel.sh` がビルド後に自動コピー） |
 | FR-006 | `make clean` でビルド成果物を削除できる | S | `build/`、`rootfs/`、`tool/` が削除される |
 | FR-007 | `make help` でターゲット一覧を表示する | C | 未指定時にヘルプが表示され、終了コード 0 |
 
@@ -169,7 +169,7 @@ SabakanOS はこの負担をなくし、「軽量であること」と「日本�
 | 入口 | 状態 | 入力 | 出力 | 所有 |
 |------|------|------|------|------|
 | `make help` | 実装済み | — | 標準出力にターゲット一覧 | レーンA |
-| `make build-kernel` | 実装済み | `config/kernel-defconfig` | `build/linux-6.18.63/arch/x86/boot/bzImage`（クロスコンパイラなしの場合は `.config` のみ） | レーンA |
+| `make build-kernel` | 実装済み | `config/kernel-defconfig` | `build/linux-6.12.34/arch/x86/boot/bzImage`（クロスコンパイラなしの場合は `.config` のみ） | レーンA |
 | `make build-rootfs` | 実装済み | `config/buildroot-defconfig`、`config/packages.txt` | `rootfs/`（`init`、`bin/sh`、`etc/passwd`、`etc/hostname`） | レーンA |
 | `make clean` | 実装済み | — | `build/`、`rootfs/`、`tool/` の削除 | レーンA |
 | `scripts/build-iso.sh` | 実装済み | `boot/limine.cfg`、カーネル、Limine 本体 | `build/sabakanos.iso` | レーンB |
@@ -185,7 +185,7 @@ SabakanOS はこの負担をなくし、「軽量であること」と「日本�
 
 | 項目 | 現状 | 解消条件 |
 |------|------|----------|
-| カーネル成果物の配置 | `make build-kernel` の出力は `build/linux-6.18.63/arch/x86/boot/bzImage` だが、`scripts/build-iso.sh` は `build/kernel` などを探す | どちらかを揃える（Makefile にコピー処理を追加するか、ISO スクリプトの候補に追加する） |
+| カーネル成果物の配置 | `make build-kernel` の出力は `build/linux-6.12.34/arch/x86/boot/bzImage` で、`scripts/build-kernel.sh` が `build/kernel` へ自動コピーする | 解消済み（自動コピーを実装） |
 | Limine 本体の入手 | `limine-bios.sys` / `limine-efi.sys` を手動で `build/limine/` に配置する必要がある | 取得手順の自動化、または同梱とライセンス表記の追加 |
 | `make iso` ターゲット | 存在せず、`scripts/build-iso.sh` を直接実行する | Makefile にターゲットを追加 |
 | 日本語環境の同梱 | `config/packages.txt` に IME・フォントが含まれず、`rootfs/etc` への配置も未実施 | FR-020〜FR-024 の実装 |

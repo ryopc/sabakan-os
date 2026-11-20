@@ -162,7 +162,7 @@ resolve_kernel_and_initramfs() {
         "$BUILD_DIR/kernel"
         "$BUILD_DIR/kernel.elf"
         "$BUILD_DIR/bzImage"
-        "$BUILD_DIR/linux-6.18.63/arch/x86/boot/bzImage"
+        "$BUILD_DIR/linux-6.12.34/arch/x86/boot/bzImage"
         "$PROJECT_ROOT/rootfs/boot/kernel"
         "$PROJECT_ROOT/rootfs/boot/kernel.elf"
         "$PROJECT_ROOT/rootfs/boot/bzImage"

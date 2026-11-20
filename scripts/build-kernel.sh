@@ -124,4 +124,9 @@ if [ ! -f "${BZIMAGE}" ]; then
 fi
 
 log "カーネルイメージ出力: ${BZIMAGE}"
+
+# カーネル成果物を ISO 生成スクリプトの参照パスへコピー（自動化）
+mkdir -p "${ROOT}/build/kernel_dir" 2>/dev/null || true
+cp "${BZIMAGE}" "${ROOT}/build/kernel" 2>/dev/null || true
+
 log "完了"

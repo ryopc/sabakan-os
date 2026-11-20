@@ -76,7 +76,7 @@ There is exactly one goal:
 
 | component | version | license | source (summary) | in_iso |
 |-----------|---------|---------|------------|--------|
-| linux-kernel | 6.18.63 | GPL-2.0-only | the matching tarball from kernel.org | yes |
+| linux-kernel | 6.12.34 | GPL-2.0-only | the matching tarball from kernel.org | yes |
 | busybox | 1.37.0 | GPL-2.0-only | the tarball from busybox.net | yes |
 | musl | 1.2.5 | MIT | the tarball from musl-libc.org | yes |
 | openrc | 0.56 | BSD-2-Clause | the tag from github.com/OpenRC/openrc | yes |
@@ -174,8 +174,8 @@ build/
     │   ├── kernel-defconfig
     │   └── buildroot-defconfig
     ├── linux-kernel/
-    │   ├── linux-6.18.63.tar.xz
-    │   └── linux-6.18.63/
+    │   ├── linux-6.12.34.tar.xz
+    │   └── linux-6.12.34/
     ├── busybox/
     │   ├── busybox-1.37.0.tar.bz2
     │   └── busybox-1.37.0/

@@ -42,3 +42,10 @@ procps                  # プロセス管理 (ps, top, free 等)
 # --- 日本語ロケール/キーボード ---
 # ja_JP.UTF-8 ロケール、Asia/Tokyo タイムゾーン、106キーキーボード設定は
 # rootfs/etc 以下に直接配置 (本レーンC 所有)
+
+# --- 日本語デスクトップ (M2) ---
+# 日本語フォント、入力メソッド、軽量ウィンドウマネージャ
+font-noto-cjk           # 日本語フォント (Noto Sans CJK JP, SIL OFL 1.1)
+ibus                    # 入力メソッドフレームワーク (LGPL-2.1-or-later)
+ibus-mozc               # Mozc 日本語入力メソッド (BSD-3-Clause)
+openbox                 # 軽量ウィンドウマネージャ (GPL-2.0-only)

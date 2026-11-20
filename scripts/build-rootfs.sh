@@ -182,6 +182,64 @@ export LC_CTYPE=ja_JP.UTF-8
 export TZ=Asia/Tokyo
 EOF
 
+# ---- 5c. デスクトップ環境設定 (M2: X11 / 日本語入力 / 軽量WM) ----
+# IBus + Mozc 入力メソッド環境変数
+cat > "${TARGET}/etc/profile.d/ibus.sh" <<'EOF'
+# SabakanOS IBus + Mozc 日本語入力環境変数
+export GTK_IM_MODULE=ibus
+export QT_IM_MODULE=ibus
+export XMODIFIERS=@im=ibus
+EOF
+
+# X11 セッション起動スクリプト (.xprofile)
+mkdir -p "${TARGET}/etc/skel"
+cat > "${TARGET}/etc/skel/.xprofile" <<'EOF'
+# SabakanOS X11 セッション起動スクリプト
+ibus-daemon -drx &
+EOF
+chmod 755 "${TARGET}/etc/skel/.xprofile"
+
+# Openbox 設定
+mkdir -p "${TARGET}/etc/xdg/openbox"
+cat > "${TARGET}/etc/xdg/openbox/autostart" <<'EOF'
+# SabakanOS Openbox 自動起動スクリプト
+ibus-daemon -drx &
+EOF
+
+cat > "${TARGET}/etc/xdg/openbox/menu.xml" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_menu xmlns="http://openbox.org/3.4/menu">
+    <menu id="root-menu" label="SabakanOS">
+        <item label="ターミナル"><action name="Execute"><execute>xterm</execute></action></item>
+        <item label="終了"><action name="Exit"/></item>
+    </menu>
+</openbox_menu>
+EOF
+
+# X セッション初期化スクリプト
+mkdir -p "${TARGET}/etc/X11/xinit"
+cat > "${TARGET}/etc/X11/xinit/xinitrc" <<'EOF'
+#!/bin/sh
+# SabakanOS X セッション初期化スクリプト
+export GTK_IM_MODULE=ibus
+export QT_IM_MODULE=ibus
+export XMODIFIERS=@im=ibus
+ibus-daemon -drx &
+exec openbox
+EOF
+chmod 755 "${TARGET}/etc/X11/xinit/xinitrc"
+
+# デスクトップセッションエントリ
+mkdir -p "${TARGET}/usr/share/xsessions"
+cat > "${TARGET}/usr/share/xsessions/sabakan-openbox.desktop" <<'EOF'
+[Desktop Entry]
+Name=SabakanOS Openbox
+Comment=Lightweight Japanese Desktop (Openbox + IBus + Mozc)
+Exec=/etc/X11/xinit/xinitrc
+TryExec=/usr/bin/openbox
+Type=XSession
+EOF
+
 # ---- 6. 起動スクリプト rcS ----
 cat > "${TARGET}/etc/init.d/rcS" <<'EOF'
 #!/bin/sh
@@ -200,5 +258,5 @@ ln -sf busybox "${TARGET}/bin/sh"
 
 log "完了: ルートファイルシステムを生成しました -> ${TARGET}"
 log "ディレクトリ: bin sbin etc usr/bin usr/sbin usr/lib lib lib64 var proc sys dev boot home root tmp opt"
-log "主なファイル: init, etc/passwd, etc/group, etc/shadow, etc/fstab, etc/inittab, etc/profile, etc/profile.d/locale.sh, etc/locale.conf, etc/timezone, etc/vconsole.conf, etc/init.d/rcS"
+log "主なファイル: init, etc/passwd, etc/group, etc/shadow, etc/fstab, etc/inittab, etc/profile, etc/profile.d/locale.sh, etc/profile.d/ibus.sh, etc/locale.conf, etc/timezone, etc/vconsole.conf, etc/xdg/openbox/autostart, etc/xdg/openbox/menu.xml, etc/X11/xinit/xinitrc, etc/skel/.xprofile, usr/share/xsessions/sabakan-openbox.desktop, etc/init.d/rcS"
 exit 0

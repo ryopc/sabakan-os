@@ -207,8 +207,8 @@ ISO のファイル名、`/etc/os-release`、リリースタグは同一のバ�
 | フェーズ | 目標 | 主な成果物 | 完了条件 | 状態 |
 |----------|------|------------|----------|------|
 | M0: 基盤 | リポジトリ初期化とドキュメント基盤 | `README.md`、`LICENSE`、`docs/`、CI、`iso/COPYING` | CI が green、必須ドキュメントが揃う | 完了 |
-| M1: ベースシステム | カーネルとルートFSのビルド、日本語ロケール | `make build-kernel`、`make build-rootfs`、`ja_JP.UTF-8` | QEMU で起動し `locale` が日本語を返す | 進行中（ビルドは動作、日本語環境は未同梱） |
-| M2: 日本語デスクトップ | IME、フォント、軽量 WM | IBus/Fcitx5 + Mozc、Noto CJK、Openbox 等 | GUI 起動と日本語入力の確認 | 未着手 |
+| M1: ベースシステム | カーネルとルートFSのビルド、日本語ロケール | `make build-kernel`、`make build-rootfs`、`ja_JP.UTF-8` | QEMU で起動し `locale` が日本語を返す | 進行中（ビルド・日本語環境動作） |
+| M2: 日本語デスクトップ | IME、フォント、軽量 WM | IBus/Fcitx5 + Mozc、Noto CJK、Openbox 等 | GUI 起動と日本語入力の確認 | 進行中（パッケージ定義・rootfs 設定ファイル実装済み） |
 | M3: 開発ツール統合 | ツールチェーンとコンテナランタイム | gcc、git、python3、podman | 各ツールの動作確認 | 未着手 |
 | M4: インストーラ / Live | `sabakan-install`、Live USB、frugal モード | インストーラ、書き込み手順 | 実機または VM へのインストール成功 | 一部（USB 書き込み手順のみ） |
 | M5: テスト / QA | 日本語入力、更新、ロールバックの検証 | テストレポート、既知の問題一覧 | 主要シナリオの pass | 未着手 |

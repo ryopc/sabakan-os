@@ -185,6 +185,7 @@ jobs:
           ibus|IBus|IBus|ibus
           ibus-mozc|Mozc|Mozc|mozc
           openbox|Openbox|Openbox|openbox
+          zsh|Z shell|Z shell|zsh
           MAPPING
           )
 

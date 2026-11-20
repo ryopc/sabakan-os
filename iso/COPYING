@@ -103,7 +103,7 @@ licenses (mostly GPL-3.0-or-later). bash is not bundled by default
 
 
 --------------------------------------------------------------------------------
-5. Japanese Environment (M2: 日本語デスクトップ)
+5. Japanese Environment (M2: Japanese Desktop)
 -------------------------------------------------------------------------------
 
 The Japanese environment components (fonts, IME, window manager) are bundled
@@ -116,8 +116,9 @@ in the M2 release. Their full license texts are installed under
  IBus (ibus)          | LGPL-2.1-or-later           | /usr/share/licenses/ibus/
  Mozc (ibus-mozc)     | BSD-3-Clause                | /usr/share/licenses/mozc/
  Openbox (openbox)    | GPL-2.0-or-later            | /usr/share/licenses/openbox/
+  Z shell (zsh)        | MIT                         | /usr/share/licenses/zsh/
 
-6. Summary of License Terms
+ 6. Summary of License Terms
 --------------------------------------------------------------------------------
 
 (1) GPL-2.0-only / GPL-2.0-or-later

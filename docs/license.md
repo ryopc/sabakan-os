@@ -100,7 +100,7 @@ The "Status" column means:
 | grep / gzip / tar | Bundled | BusyBox applets are GPL-2.0-only, GNU versions are GPL-3.0-or-later | Provide the corresponding source according to what is actually installed | busybox.net / gnu.org |
 | syslog (busybox syslogd) | Bundled | GPL-2.0-only | Provide the corresponding source | busybox.net |
 | bash | Optional | GPL-3.0-or-later | Provide the corresponding source and installation information | gnu.org/software/bash |
-| zsh | Optional | MIT | Ship the full license text | zsh.sourceforge.io |
+| Z shell (zsh) | Optional | MIT | Ship the full license text | zsh.sourceforge.io |
 | Locale / keyboard definitions | Bundled | musl-locales (MIT), Alpine kbd definitions (GPL-2.0 family) | State the origin and license, ship the full text | musl-libc.org / aports |
 
 > `grep`, `gzip`, `tar` and `vi` fall under BusyBox's GPL-2.0 as long as they are provided as BusyBox applets. Installing the GNU versions adds their own licenses.

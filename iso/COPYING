@@ -103,26 +103,20 @@ licenses (mostly GPL-3.0-or-later). bash is not bundled by default
 
 
 --------------------------------------------------------------------------------
-5. Japanese Environment (enable this section when the components are bundled)
---------------------------------------------------------------------------------
+5. Japanese Environment (M2: 日本語デスクトップ)
+-------------------------------------------------------------------------------
 
-The Japanese environment is defined as a requirement but is not bundled in
-this release. In a release that starts bundling it, add the components below,
-install their full license texts under /usr/share/licenses/, and then enable
-this section.
+The Japanese environment components (fonts, IME, window manager) are bundled
+in the M2 release. Their full license texts are installed under
+/usr/share/licenses/ on the ISO.
 
  Component            | License                     | Location of full license text
 ----------------------+-----------------------------+--------------------------------
- Mozc                 | BSD-3-Clause                | /usr/share/licenses/mozc/
- Mozc dictionary data | BSD-3-Clause                | /usr/share/licenses/mozc/
- IBus                 | LGPL-2.1-or-later           | /usr/share/licenses/ibus/
- Fcitx5               | LGPL-2.1-or-later           | /usr/share/licenses/fcitx5/
- Noto Sans CJK JP     | SIL OFL 1.1                 | /usr/share/licenses/noto-cjk/
- Noto Serif CJK JP    | SIL OFL 1.1                 | /usr/share/licenses/noto-cjk/
- IPAex fonts          | IPA Font License 1.0        | /usr/share/licenses/ipaex-fonts/
+ Noto Sans CJK JP (font-noto-cjk) | OFL-1.1                 | /usr/share/licenses/noto-cjk/
+ IBus (ibus)          | LGPL-2.1-or-later           | /usr/share/licenses/ibus/
+ Mozc (ibus-mozc)     | BSD-3-Clause                | /usr/share/licenses/mozc/
+ Openbox (openbox)    | GPL-2.0-or-later            | /usr/share/licenses/openbox/
 
-
---------------------------------------------------------------------------------
 6. Summary of License Terms
 --------------------------------------------------------------------------------
 

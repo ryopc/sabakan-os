@@ -14,3 +14,7 @@ iproute2	5.15.0	GPL-2.0-or-later	https://wiki.linuxfoundation.org/networking/ipr
 limine	8.7.0	BSD-2-Clause	https://github.com/limine-bootloader/limine	https://github.com/Limine-Bootloader/Limine/releases/download/v8.7.0/limine-8.7.0.tar.xz	e30c14c35063cbd79b69ed9e05a2843a4ee1d6543424aae8515ad90b7c6e0e70		yes	limine-bios.sys / limine-efi.sys を同梱
 buildroot	2026.08.1	GPL-2.0-or-later	https://buildroot.org	https://buildroot.org/downloads/buildroot-2026.08.1.tar.xz	34fb7bea8a213ffde39cc02e61703391560f26e0850f03138c722d0b09880f2b		no	ビルドホスト専用（ISO 非同梱）
 xorriso	1.5.6	GPL-3.0-or-later	https://www.gnu.org/software/xorriso	https://ftp.gnu.org/gnu/xorriso/xorriso-1.5.6.tar.gz	d4b6b66bd04c49c6b358ee66475d806d6f6d7486e801106a47d331df1f2f8feb		no	ビルドホスト専用（ISO 非同梱）
+font-noto-cjk	2.004	OFL-1.1	https://github.com/notofonts/noto-cjk	https://github.com/notofonts/noto-cjk			yes	日本語フォント (Noto Sans CJK JP)
+ibus	1.5.27	LGPL-2.1-or-later	https://github.com/ibus/ibus	https://github.com/ibus/ibus/archive/refs/tags/1.5.27.tar.gz	7ba4fcffbe804334207be3eb1b0cb2072a94ded78833f4243cb28100ec91a85a		yes	入力メソッドフレームワーク
+ibus-mozc	2.26	BSD-3-Clause	https://github.com/google/mozc	https://github.com/google/mozc			yes	Mozc 日本語入力メソッド (IBus 用)
+openbox	3.6.1	GPL-2.0-or-later	https://openbox.org	https://openbox.org/dist/openbox/openbox-3.6.1.tar.gz	8b4ac0760018c77c0044fab06a4f0c510ba87eae934d9983b10878483bde7ef7		yes	軽量ウィンドウマネージャ

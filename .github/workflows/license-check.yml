@@ -181,6 +181,10 @@ jobs:
           syslog|syslog (busybox syslogd)|syslog (busybox)|busybox
           cronie|cronie|cronie|cronie
           procps|procps-ng|procps-ng|procps
+          font-noto-cjk|Noto Sans CJK JP|Noto Sans CJK JP|noto-cjk
+          ibus|IBus|IBus|ibus
+          ibus-mozc|Mozc|Mozc|mozc
+          openbox|Openbox|Openbox|openbox
           MAPPING
           )
 

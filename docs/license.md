@@ -104,18 +104,19 @@ The "Status" column means:
 
 > `grep`, `gzip`, `tar` and `vi` fall under BusyBox's GPL-2.0 as long as they are provided as BusyBox applets. Installing the GNU versions adds their own licenses.
 
-### 4.5 Japanese Environment (planned)
+### 4.5 Japanese Environment (M2: Japanese Desktop)
 
-The Japanese environment is defined as a requirement (FR-020 to FR-024) but is not bundled in the ISO at this time. When the decision to bundle it is made, change the status to **Bundled** and install the full license texts.
+Among the Japanese environment defined in FR-020 to FR-024, fonts, IME and lightweight WM are bundled in M2. Locale, timezone and keyboard were already placed directly in rootfs in M1.
 
 | Component | Status | License | Obligations on distribution | Source |
 |-----------|--------|---------|-----------------------------|--------|
-| Mozc | Planned | BSD-3-Clause | Ship the copyright notice and the full license text | github.com/google/mozc |
-| Mozc dictionary data | Planned | Same as Mozc (BSD-3-Clause) | As above. If external dictionaries are mixed in, record their origin and license | github.com/google/mozc |
-| IBus | Planned | LGPL-2.1-or-later | Ship the full license text, provide the corresponding source | github.com/ibus/ibus |
-| Fcitx5 | Planned | LGPL-2.1-or-later | As above | github.com/fcitx/fcitx5 |
-| Noto Sans CJK JP / Noto Serif CJK JP | Planned | SIL OFL 1.1 | Ship the full license text; when modifying, follow the Reserved Font Name rules | github.com/notofonts/noto-cjk |
-| IPAex fonts | Planned | IPA Font License 1.0 | Ship the full license text, comply with the modification and redistribution terms | ipa.go.jp/font |
+| Noto Sans CJK JP | Bundled | OFL-1.1 | Ship the full license text; when modifying, follow the Reserved Font Name rules | github.com/notofonts/noto-cjk (package: font-noto-cjk) |
+| IBus | Bundled | LGPL-2.1-or-later | Ship the full license text, provide the corresponding source | github.com/ibus/ibus (package: ibus) |
+| Mozc | Bundled | BSD-3-Clause | Ship the copyright notice and the full license text | github.com/google/mozc (package: ibus-mozc) |
+| Openbox | Bundled | GPL-2.0-only | Ship the full license text, provide the corresponding source | github.com/dockingsocket/openbox (package: openbox) |
+| Mozc dictionary data | Bundled | BSD-3-Clause | Ship the full license text; if external dictionaries are mixed in, record their origin and license | github.com/google/mozc |
+| Fcitx5 | Optional | LGPL-2.1-or-later | Ship the full license text, provide the corresponding source | github.com/fcitx/fcitx5 |
+| IPAex fonts | Optional | IPA Font License 1.0 | Ship the full license text, comply with the modification and redistribution terms | ipa.go.jp/font |
 
 > **Fonts caution**: SIL OFL 1.1 permits modification and redistribution, but a modified version may not use the original Reserved Font Name. If you subset or merge fonts, rename them and record the changes.
 

@@ -112,7 +112,7 @@ in the M2 release. Their full license texts are installed under
 
  Component            | License                     | Location of full license text
 ----------------------+-----------------------------+--------------------------------
- Noto Sans CJK JP (font-noto-cjk) | SIL OFL 1.1                 | /usr/share/licenses/noto-cjk/
+ Noto Sans CJK JP (font-noto-cjk) | OFL-1.1                 | /usr/share/licenses/noto-cjk/
  IBus (ibus)          | LGPL-2.1-or-later           | /usr/share/licenses/ibus/
  Mozc (ibus-mozc)     | BSD-3-Clause                | /usr/share/licenses/mozc/
  Openbox (openbox)    | GPL-2.0-or-later            | /usr/share/licenses/openbox/

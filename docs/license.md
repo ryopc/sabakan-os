@@ -110,7 +110,7 @@ Among the Japanese environment defined in FR-020 to FR-024, fonts, IME and light
 
 | Component | Status | License | Obligations on distribution | Source |
 |-----------|--------|---------|-----------------------------|--------|
-| Noto Sans CJK JP | Bundled | SIL OFL 1.1 | Ship the full license text; when modifying, follow the Reserved Font Name rules | github.com/notofonts/noto-cjk (package: font-noto-cjk) |
+| Noto Sans CJK JP | Bundled | OFL-1.1 | Ship the full license text; when modifying, follow the Reserved Font Name rules | github.com/notofonts/noto-cjk (package: font-noto-cjk) |
 | IBus | Bundled | LGPL-2.1-or-later | Ship the full license text, provide the corresponding source | github.com/ibus/ibus (package: ibus) |
 | Mozc | Bundled | BSD-3-Clause | Ship the copyright notice and the full license text | github.com/google/mozc (package: ibus-mozc) |
 | Openbox | Bundled | GPL-2.0-only | Ship the full license text, provide the corresponding source | github.com/dockingsocket/openbox (package: openbox) |

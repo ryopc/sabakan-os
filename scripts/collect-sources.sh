@@ -226,7 +226,7 @@ while IFS='|' read -r name version license url archive_path sha256 status patche
     fi
     jq --arg date "$DATE" \
        --arg name "$name" --arg version "$version" --arg license "$license" \
-       --arg source_url "$url" --arg archive "$archive" --arg archive_path "$archive_path" \
+       --arg source_url "$url" --arg archive "$archive_path" --arg archive_path "$archive_path" \
        --arg sha256 "$sha256" --arg status "$status" --arg files "$files_entry" \
        --argjson patches "$patch_json" \
        '.components += [{

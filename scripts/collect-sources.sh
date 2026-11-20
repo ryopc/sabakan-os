@@ -85,13 +85,13 @@ build_targets() {
     local pkg_names n v lic url file
     pkg_names="$(read_package_names || true)"
 
-    while IFS='|' read -r n v lic url file; do
+    printf '%s\n' "$PKG_TABLE" | grep -vE '^[[:space:]]*$' | while IFS='|' read -r n v lic url file; do
         [ -z "$n" ] && continue
         # packages.txt に登場する GPL/LGPL パッケージ、または linux-kernel を収集対象とする
         if printf '%s\n' "$pkg_names" | grep -qxF -- "$n" || [ "$n" = "linux-kernel" ]; then
             printf '%s|%s|%s|%s|%s\n' "$n" "$v" "$lic" "$url" "$file"
         fi
-    done <<< "$(printf '%s\n' "$PKG_TABLE" | grep -vE '^[[:space:]]*$')"
+    done
 }
 
 # ディレクトリ準備
@@ -102,7 +102,7 @@ DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 log "収集対象の解析を開始 (packages.txt: $PACKAGES_FILE)"
 
-while IFS='|' read -r name version license url archive; do
+build_targets | while IFS='|' read -r name version license url archive; do
     [ -z "$name" ] && continue
 
     pkg_dir="$SOURCES_DIR/$name"
@@ -187,7 +187,7 @@ while IFS='|' read -r name version license url archive; do
     printf '%s|%s|%s|%s|%s|%s|%s|%s\n' \
         "$name" "$version" "$license" "$url" "$archive_path" "$sha256" "$status" "$patches_applied" >> "$TMP_MANIFEST"
 
-done <<< "$(build_targets)"
+done
 
 # [6] ビルド設定ファイルを build/sources/config/ にコピー
 for cfg in kernel-defconfig buildroot-defconfig; do

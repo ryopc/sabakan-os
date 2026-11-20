@@ -203,6 +203,16 @@ jobs:
       - name: リポジトリを取得
         uses: actions/checkout@v4
 
+      - name: ビルドキャッシュを復元 (カーネル)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/linux-6.12.34/
+            build/sources/
+          key: sabakanos-kernel-${{ runner.os }}-${{ hashFiles('config/kernel-defconfig') }}
+          restore-keys: |
+            sabakanos-kernel-${{ runner.os }}-
+
       - name: Makefile の存在確認
         run: |
           if [ ! -f Makefile ]; then
@@ -258,6 +268,14 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: ビルドキャッシュを保存 (カーネル)
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/linux-6.12.34/
+            build/sources/
+          key: sabakanos-kernel-${{ runner.os }}-${{ hashFiles('config/kernel-defconfig') }}
+
   build_rootfs:
     name: ルートFSビルド
     runs-on: ubuntu-24.04
@@ -265,6 +283,16 @@ jobs:
     steps:
       - name: リポジトリを取得
         uses: actions/checkout@v4
+
+      - name: ビルドキャッシュを復元 (ルートFS)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/buildroot/
+            build/sources/
+          key: sabakanos-rootfs-${{ runner.os }}-${{ hashFiles('config/buildroot-defconfig') }}
+          restore-keys: |
+            sabakanos-rootfs-${{ runner.os }}-
 
       - name: Makefile の存在確認
         run: |
@@ -309,6 +337,14 @@ jobs:
           path: rootfs.tar
           if-no-files-found: error
           retention-days: 7
+
+      - name: ビルドキャッシュを保存 (ルートFS)
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/buildroot/
+            build/sources/
+          key: sabakanos-rootfs-${{ runner.os }}-${{ hashFiles('config/buildroot-defconfig') }}
 
   build_iso:
     name: ISO ビルド（参考）

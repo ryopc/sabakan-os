@@ -144,6 +144,14 @@ export PATH
 PS1='sabakan:\w # '
 EOF
 
+# --- デフォルトシェル一覧 ---
+cat > "${TARGET}/etc/shells" <<'EOF'
+# SabakanOS 有効ログインシェル
+/bin/busybox
+/bin/sh
+/bin/zsh
+EOF
+
 echo "sabakan" > "${TARGET}/etc/hostname"
 
 # ---- 5b. 日本語環境設定 (ja_JP.UTF-8, Asia/Tokyo, jp106) ----

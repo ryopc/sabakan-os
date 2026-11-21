@@ -35,3 +35,6 @@ CONFIG_HZ_250=y
 CONFIG_HZ=250
 
 CONFIG_NET=n
+# CONFIG_NET=n は FR-032 (ネットワーク) と矛盾するが、CONFIG_NET=y への変更と
+# 最小ネットワークドライバの追加は M1 へ回すため、本プランでは注記のみとし
+# ここでは n を維持する。

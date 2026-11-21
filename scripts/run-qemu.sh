@@ -5,10 +5,13 @@
 # 概要:
 #   scripts/build-iso.sh で生成したブート可能 ISO を QEMU (x86_64) で起動する。
 #   ISO が未生成の場合は build-iso.sh の実行を促して停止する。
+#   シリアル出力をキャプチャし、「SabakanOS 起動完了」またはシェルプロンプト
+#   を検出できなければ非ゼロ終了とする (ブート検証)。
 #
 # 使い方:
 #   ./scripts/run-qemu.sh           # デフォルトオプションで起動
 #   QEMU_OPTS="-m 4G" ./scripts/run-qemu.sh  # 環境変数でオプション上書き可能
+#   QEMU_TIMEOUT=120 ./scripts/run-qemu.sh   # タイムアウト秒数 (既定 60)
 #
 # 参考: /Users/ryotagtagtag/projects/os/scripts/run-qemu.sh
 #
@@ -28,12 +31,14 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ISO="$PROJECT_ROOT/build/sabakanos.iso"
 
 # 既定の QEMU オプション
-#   -m 2G      : メモリ 2GB
-#   -serial stdio : シリアルコンソールを標準入出力に接続 (カーネルログ確認用)
-#   -vga std   : 標準 VGA
-#   -cdrom     : ブートメディアとして ISO を指定
-DEFAULT_QEMU_OPTS="-m 2G -serial stdio -vga std"
+#   -m 2G        : メモリ 2GB
+#   -vga std     : 標準 VGA
+#   -display none: ウィンドウを開かない (ヘッドレス)
+# シリアル (ttyS0) は最初の -serial オプションとしてキャプチャファイルに接続し、
+# カーネル cmdline (console=ttyS0) の出力を回収する。
+DEFAULT_QEMU_OPTS="-m 2G -boot order=d -vga std -display none"
 QEMU_OPTS="${QEMU_OPTS:-$DEFAULT_QEMU_OPTS}"
+QEMU_TIMEOUT="${QEMU_TIMEOUT:-60}"
 
 # ---------------------------------------------------------------------------
 # ユーティリティ
@@ -76,10 +81,37 @@ main() {
 
     log "ISO イメージ: $ISO"
     log "QEMU オプション: $QEMU_OPTS"
-    log "起動中... (終了するには QEMU ウィンドウを閉じるか C-a c → quit)"
+    log "タイムアウト: ${QEMU_TIMEOUT}秒"
+    log "起動中..."
+
+    # シリアル出力キャプチャ用一時ファイル (ttyS0 -> ここでキャプチャ)
+    SERIAL_LOG="$(mktemp)"
+    trap 'rm -f "$SERIAL_LOG"' EXIT
 
     # shellcheck disable=SC2086
-    exec qemu-system-x86_64 $QEMU_OPTS -cdrom "$ISO"
+    set +e
+    timeout "${QEMU_TIMEOUT}" qemu-system-x86_64 -serial "file:${SERIAL_LOG}" $QEMU_OPTS -cdrom "$ISO" >/dev/null 2>&1
+    qemu_status=$?
+    set -e
+
+    # キャプチャしたシリアル出力を標準出力にも反映
+    if [ -f "$SERIAL_LOG" ]; then
+        cat "$SERIAL_LOG"
+    fi
+
+    if [ "$qemu_status" -eq 124 ]; then
+        die "QEMU 起動がタイムアウトしました (${QEMU_TIMEOUT}秒)"
+    elif [ "$qemu_status" -ne 0 ]; then
+        die "QEMU が異常終了しました (終了コード: $qemu_status)"
+    fi
+
+    # 起動成功の検出: シリアル出力から「SabakanOS 起動完了」またはシェルプロンプト
+    if [ -f "$SERIAL_LOG" ] && grep -qE 'SabakanOS 起動完了|sabakan:.*#|sabakan login|root@sabakan' "$SERIAL_LOG"; then
+        log "ブート成功: シリアル出力から起動完了/シェルプロンプトを検出"
+        exit 0
+    else
+        die "ブート失敗: シリアル出力に起動完了/シェルプロンプトが検出されませんでした"
+    fi
 }
 
 main "$@"

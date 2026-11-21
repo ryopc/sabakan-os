@@ -10,7 +10,7 @@ SHELL := /bin/sh
 
 .PHONY: all build-kernel build-rootfs clean help iso test install source-bundle
 
-all: help
+all: build-kernel build-rootfs	## カーネルとルートファイルシステムを順次ビルド
 
 build-kernel:	## Linux カーネルをビルド (ARCH 環境変数または引数で指定, 既定 x86_64)
 	@$(CURDIR)/scripts/build-kernel.sh ${ARCH:-x86_64}

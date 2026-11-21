@@ -8,6 +8,10 @@
 #   本スクリプトは macOS 等のホストでも必ず正常終了し、chroot 用の雛形
 #   ディレクトリ構造と初期設定ファイルを生成する。
 #
+#   busybox 本体を rootfs/bin/busybox に配置し、bin/sh -> busybox が解決する
+#   ようにする。ビルド完了後、rootfs/ を build/initramfs.img (cpio アーカイブ)
+#   へアーカイブして出力する。
+#
 # ディレクトリ構造:
 #   bin sbin etc usr/bin usr/sbin usr/lib lib lib64
 #   var proc sys dev boot home root tmp opt
@@ -15,8 +19,9 @@
 # 出力:
 #   rootfs/  (init, /etc/passwd, /etc/group, /etc/shadow, /etc/fstab,
 #             /etc/inittab, /etc/profile, /etc/init.d/rcS, bin/sh リンク等)
+#   build/initramfs.img (cpio newc + gzip アーカイブ化した rootfs/)
 
-set -u
+set -eu
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -32,6 +37,7 @@ TARGET="${ROOT}/rootfs"
 
 log()  { printf '[build-rootfs] %s\n' "$*"; }
 warn() { printf '[build-rootfs][警告] %s\n' "$*" >&2; }
+err()  { printf '[build-rootfs][エラー] %s\n' "$*" >&2; }
 
 mkdir -p "${BUILD_DIR}" "${TARGET}"
 
@@ -257,14 +263,70 @@ echo "SabakanOS 起動完了"
 EOF
 chmod 755 "${TARGET}/etc/init.d/rcS"
 
-# ---- 7. /bin/sh -> busybox へのシンボリックリンク ----
-# busybox 本体は Buildroot / クロスツールチェインで生成し、
-# ビルド後に rootfs/bin へ配置する。ここではリンクのみを作成する。
+# ---- 7. busybox 本体の配置と /bin/sh リンク ----
+# busybox 本体は以下の優先順位で配置する：
+#   (1) rootfs/bin/busybox が既に存在し非空ならそれを使用
+#   (2) ホストに busybox コマンドがあればコピー
+#   (3) 静的リンク busybox バイナリをダウンロード (ベストエフォート)
+#   (4) 代替スクリプトを配置 (非ブート可能、WARN)
+stage_busybox() {
+    if [ -s "${TARGET}/bin/busybox" ]; then
+        log "busybox は既に配置済み: ${TARGET}/bin/busybox"
+        return 0
+    fi
+    if command -v busybox >/dev/null 2>&1; then
+        cp "$(command -v busybox)" "${TARGET}/bin/busybox"
+        chmod 755 "${TARGET}/bin/busybox"
+        log "busybox をホストからコピー: ${TARGET}/bin/busybox"
+        return 0
+    fi
+    # 静的リンク busybox のダウンロードを試行 (x86_64、ベストエフォート)
+    for u in \
+        "https://busybox.net/downloads/binaries/1.35.0-defconfig-multiarch-musl/busybox-x86_64" \
+        "https://busybox.net/downloads/binaries/1.35.0-x86_64/busybox"; do
+        if curl -fsSL --connect-timeout 15 -o "${TARGET}/bin/busybox.part" "$u" 2>/dev/null; then
+            if [ -s "${TARGET}/bin/busybox.part" ]; then
+                mv "${TARGET}/bin/busybox.part" "${TARGET}/bin/busybox"
+                chmod 755 "${TARGET}/bin/busybox"
+                log "busybox をダウンロード: ${TARGET}/bin/busybox ($u)"
+                return 0
+            fi
+        fi
+    done
+    rm -f "${TARGET}/bin/busybox.part"
+    warn "busybox バイナリを入手できませんでした。代替スクリプトを配置します (非ブート可能)"
+    cat > "${TARGET}/bin/busybox" <<'BBOX'
+#!/bin/sh
+# SabakanOS busybox 代替 (スタブ)
+# 実機ブート時は x86_64 静的リンク busybox バイナリに差し替えること。
+echo "stub busybox" >&2
+exit 0
+BBOX
+    chmod 755 "${TARGET}/bin/busybox"
+}
+
+stage_busybox
+
+# /bin/sh -> busybox (busybox が実体なのでリンクが解決する)
 ln -sf busybox "${TARGET}/bin/sh"
 
 # レーンC 配置の既存ファイル (etc/keymaps, locale.gen 等) は上書きしない。
 
+# ---- 8. initramfs (cpio アーカイブ) の出力 ----
+log "initramfs をアーカイブ中: build/initramfs.img"
+mkdir -p "${BUILD_DIR}"
+rm -f "${BUILD_DIR}/initramfs.img"
+( cd "${TARGET}" && find . | cpio -o -H newc | gzip > "${BUILD_DIR}/initramfs.img" )
+
+if [ ! -s "${BUILD_DIR}/initramfs.img" ]; then
+    err "initramfs の生成に失敗しました: ${BUILD_DIR}/initramfs.img"
+    exit 1
+fi
+
+log "initramfs 出力: ${BUILD_DIR}/initramfs.img"
+
 log "完了: ルートファイルシステムを生成しました -> ${TARGET}"
 log "ディレクトリ: bin sbin etc usr/bin usr/sbin usr/lib lib lib64 var proc sys dev boot home root tmp opt"
 log "主なファイル: init, etc/passwd, etc/group, etc/shadow, etc/fstab, etc/inittab, etc/profile, etc/profile.d/locale.sh, etc/profile.d/ibus.sh, etc/locale.conf, etc/timezone, etc/vconsole.conf, etc/xdg/openbox/autostart, etc/xdg/openbox/menu.xml, etc/X11/xinit/xinitrc, etc/skel/.xprofile, usr/share/xsessions/sabakan-openbox.desktop, etc/init.d/rcS"
+log "bin/sh -> busybox (${TARGET}/bin/sh), initramfs: build/initramfs.img"
 exit 0

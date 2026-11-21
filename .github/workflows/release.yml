@@ -60,6 +60,9 @@ jobs:
           name: iso-image-arm64
           path: dist-arm64
 
+      - name: arm64 ディレクトリを確保
+        run: mkdir -p dist-arm64
+
       - name: 成果物の確認とリネーム
         run: |
           set -euo pipefail

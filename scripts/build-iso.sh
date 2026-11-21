@@ -33,6 +33,21 @@ BUILD_DIR="$PROJECT_ROOT/build"
 ISO_OUT="$BUILD_DIR/sabakanos.iso"
 STAGING_DIR="$BUILD_DIR/iso_root"
 
+# アーキテクチャ (EFI ブートローダファイル名に影響: x86_64=BOOTX64.EFI, arm64=BOOTAA64.EFI)
+ARCH="${ARCH:-x86_64}"
+case "$ARCH" in
+    x86_64|amd64) ARCH=x86_64 ;;
+    arm64|aarch64) ARCH=arm64 ;;
+    *)
+        die "未サポートのアーキテクチャ: $ARCH (x86_64 または arm64 を指定してください)"
+        ;;
+esac
+if [[ "$ARCH" == "arm64" ]]; then
+    LIMINE_EFI_NAME="BOOTAA64.EFI"
+else
+    LIMINE_EFI_NAME="BOOTX64.EFI"
+fi
+
 LIMINE_CFG="$PROJECT_ROOT/boot/limine.cfg"
 
 # ---------------------------------------------------------------------------
@@ -80,7 +95,7 @@ resolve_limine_binaries() {
     LIMINE_UEFI_CD=""
     LIMINE_TOOL=""
 
-    # 候補ディレクトリ (環境変数 LIMAINE_DIR で上書き可能)
+    # 候補ディレクトリ (環境変数 LIMINE_DIR で上書き可能)
     local limine_dirs=()
     if [[ -n "${LIMINE_DIR:-}" ]]; then
         limine_dirs+=("$LIMINE_DIR")
@@ -195,7 +210,8 @@ resolve_kernel_and_initramfs() {
             "  候補: build/kernel, build/kernel.elf, rootfs/boot/kernel"
     fi
     if [[ -z "$INITRAMFS" ]]; then
-        warn "initramfs が見つかりません (任意)。initrd なしでブートします。\n"\
+        die "initramfs が見つかりません (必須)。\n"\
+            "  先に 'make build-rootfs' (scripts/build-rootfs.sh) を実行して build/initramfs.img を生成してください。\n"\
             "  候補: build/initramfs.img, build/initrd.img"
     fi
 
@@ -232,12 +248,12 @@ stage_iso_root() {
         log "スキップ: boot/limine-uefi-cd.bin (limine-uefi-cd.bin 未入手のため)"
     fi
 
-    # Limine EFI ブートローダ (EFI/BOOT/BOOTX64.EFI) — limine-efi.sys が無い場合はスキップ
+    # Limine EFI ブートローダ (EFI/BOOT/BOOTX64.EFI または BOOTAA64.EFI) — limine-efi.sys が無い場合はスキップ
     if [[ -n "$LIMINE_EFI" ]]; then
-        cp "$LIMINE_EFI" "$STAGING_DIR/EFI/BOOT/BOOTX64.EFI"
-        log "コピー: EFI/BOOT/BOOTX64.EFI (limine-efi.sys から)"
+        cp "$LIMINE_EFI" "$STAGING_DIR/EFI/BOOT/${LIMINE_EFI_NAME}"
+        log "コピー: EFI/BOOT/${LIMINE_EFI_NAME} (limine-efi.sys から)"
     else
-        log "スキップ: EFI/BOOT/BOOTX64.EFI (limine-efi.sys 未入手のため)"
+        log "スキップ: EFI/BOOT/${LIMINE_EFI_NAME} (limine-efi.sys 未入手のため)"
     fi
 
     # カーネル
@@ -277,7 +293,7 @@ build_iso_xorriso() {
             -volid 'SABAKANOS' \
             -b boot/limine-bios-cd.bin \
             -no-emul-boot -boot-load-size 4 -boot-info-table \
-            --efi-boot EFI/BOOT/BOOTX64.EFI \
+            --efi-boot "EFI/BOOT/${LIMINE_EFI_NAME}" \
             -efi-boot-part --efi-boot-image --protective-msdos-label \
             "$STAGING_DIR"
     else

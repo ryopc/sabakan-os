@@ -198,7 +198,6 @@ jobs:
     name: カーネルビルド (${{ matrix.arch }})
     runs-on: ubuntu-24.04
     timeout-minutes: 120
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -316,7 +315,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential rsync curl wget xz-utils git make zstd \
-            fakeroot squashfs-tools cpio kmod bc
+            fakeroot squashfs-tools cpio kmod bc busybox
 
       - name: ルートFSをビルド
         run: make build-rootfs
@@ -367,7 +366,6 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x86_64, arm64]
-    continue-on-error: true
     steps:
       - name: リポジトリを取得
         uses: actions/checkout@v4
@@ -423,6 +421,12 @@ jobs:
           # ディレクトリではなくファイルとして直接コピーする
           cp "$image" build/kernel
           ls -lh build/kernel
+
+      - name: initramfs を生成
+        run: |
+          set -euo pipefail
+          cd rootfs && find . | cpio -o -H newc | gzip > ../build/initramfs.img
+          ls -lh build/initramfs.img
 
       - name: Limine をソースからビルド
         run: |
@@ -481,7 +485,7 @@ jobs:
           ls -la limine/
 
       - name: ISO をビルド
-        run: ./scripts/build-iso.sh
+        run: ARCH=${{ matrix.arch }} ./scripts/build-iso.sh
 
       - name: ISO の確認
         run: |
@@ -507,6 +511,32 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  boot_test:
+    name: ブートテスト (QEMU x86_64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs:
+      - build_iso
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: QEMU の導入
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86
+
+      - name: ISO 成果物を取得
+        uses: actions/download-artifact@v4
+        with:
+          name: iso-image-x86_64
+          path: build
+
+      - name: ブートテストを実行
+        run: |
+          chmod +x scripts/run-qemu.sh
+          QEMU_TIMEOUT=60 ./scripts/run-qemu.sh
+
   ci-summary:
     name: 検証サマリ
     runs-on: ubuntu-24.04
@@ -517,6 +547,7 @@ jobs:
       - build_kernel
       - build_rootfs
       - build_iso
+      - boot_test
     if: always()
     steps:
       - name: 結果をまとめる
@@ -532,7 +563,10 @@ jobs:
           for pair in \
             "docs:${{ needs.docs.result }}" \
             "license:${{ needs.license.result }}" \
-            "build_rootfs:${{ needs.build_rootfs.result }}"; do
+            "build_kernel:${{ needs.build_kernel.result }}" \
+            "build_rootfs:${{ needs.build_rootfs.result }}" \
+            "build_iso:${{ needs.build_iso.result }}" \
+            "boot_test:${{ needs.boot_test.result }}"; do
             name=${pair%%:*}
             result=${pair##*:}
             if [ "$result" != "success" ]; then
@@ -541,11 +575,4 @@ jobs:
             fi
           done
 
-          if [ "${{ needs.build_kernel.result }}" != "success" ]; then
-            echo "::warning::カーネルビルドは失敗しました（${{ needs.build_kernel.result }}）。bzImage が未生成のため、ISO ビルドは参考扱いになります（docs/requirements.md 6.1）。"
-          fi
-
-          if [ "${{ needs.build_iso.result }}" != "success" ]; then
-            echo "::warning::ISO ビルドは失敗しましたが、現時点では参考扱いのため CI は失敗にしません（docs/requirements.md 6.1）"
-          fi
           exit "$status"

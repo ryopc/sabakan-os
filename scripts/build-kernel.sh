@@ -4,6 +4,7 @@
 #
 # 対象: Ubuntu 24.04 (GitHub Actions ubuntu-24.04) など、ホストが x86_64 Linux の環境
 #       クロスコンパイルにより arm64 もビルド可能
+#       macOS では docker 経由で Linux コンテナ内ビルド、またはプレースホルダ出力
 #
 # 前提パッケージ:
 #   sudo apt-get install -y build-essential bc bison flex libelf-dev libssl-dev bc dwarves
@@ -15,11 +16,14 @@
 # 出力:
 #   build/linux-<VERSION>/arch/<ARCH>/boot/bzImage (x86_64)
 #   build/linux-<VERSION>/arch/arm64/boot/Image    (arm64)
+#   build/kernel-<ARCH> (ISO 生成スクリプト参照用コピー)
 #
 # 方針:
 #   - set -eu により、途中の失敗は必ず終了コードに反映させる
 #   - .config の変更は scripts/config と merge_config.sh で行う
 #   - 成果物の存在を最後に確認し、無ければ失敗とする
+#   - macOS は Linux 専用の kbuild が動作しないため、docker 経由ビルドまたは
+#     非ブート可能プレースホルダ出力＋WARN で正常終了する
 
 set -eu
 
@@ -37,6 +41,11 @@ case "$ARCH" in
         ;;
 esac
 
+case "$ARCH" in
+    x86_64) KERNEL_IMAGE="arch/x86/boot/bzImage"; KERNEL_TARGET="bzImage" ;;
+    arm64)  KERNEL_IMAGE="arch/arm64/boot/Image";  KERNEL_TARGET="Image" ;;
+esac
+
 KERNEL_VERSION="6.12.34"
 KERNEL_TAR="linux-${KERNEL_VERSION}.tar.xz"
 KERNEL_URL="https://cdn.kernel.org/pub/linux/kernel/v6.x/${KERNEL_TAR}"
@@ -52,11 +61,10 @@ log() { printf '[build-kernel] %s\n' "$*"; }
 warn() { printf '[build-kernel][WARN] %s\n' "$*" >&2; }
 err() { printf '[build-kernel][エラー] %s\n' "$*" >&2; }
 
-# ---- 0. 前提確認 ----
-if [ "$(uname -s)" != "Linux" ]; then
-    err "このスクリプトは Linux 専用です (macOS では動作しません)"
-    exit 1
-fi
+# プラットフォーム判定
+PLATFORM="$(uname -s)"
+
+# ---- 0. 前提確認 (共通) ----
 if [ ! -f "${CONFIG_COMMON}" ]; then
     err "共通設定フラグメントが見つかりません: ${CONFIG_COMMON}"
     exit 1
@@ -81,88 +89,119 @@ fi
 
 cd "${SRC_DIR}"
 
-# ---- 2. 基準 defconfig + 共通 + アーキテクチャ別フラグメントを統合 ----
-log "${ARCH} defconfig を生成中"
-make ARCH="${ARCH}" defconfig
-if [ ! -f .config ]; then
-    err "defconfig 生成後に .config が見つかりません。make ARCH=${ARCH} defconfig が失敗した可能性があります。"
-    exit 1
-fi
+# ---- プラットフォーム分岐 ----
+case "$PLATFORM" in
+    Linux)
+        # ---- 2. 基準 defconfig + 共通 + アーキテクチャ別フラグメントを統合 ----
+        log "${ARCH} defconfig を生成中"
+        make ARCH="${ARCH}" defconfig
+        if [ ! -f .config ]; then
+            err "defconfig 生成後に .config が見つかりません。make ARCH=${ARCH} defconfig が失敗した可能性があります。"
+            exit 1
+        fi
 
-log "共通フラグメントを統合中: ${CONFIG_COMMON}"
-scripts/kconfig/merge_config.sh -m -O . .config "${CONFIG_COMMON}"
-log "アーキテクチャフラグメントを統合中: ${CONFIG_ARCH}"
-scripts/kconfig/merge_config.sh -m -O . .config "${CONFIG_ARCH}"
-if [ ! -f .config ]; then
-    err "merge_config.sh 実行後に .config が見つかりません。merge_config.sh が失敗した可能性があります。"
-    exit 1
-fi
+        log "共通フラグメントを統合中: ${CONFIG_COMMON}"
+        scripts/kconfig/merge_config.sh -m -O . .config "${CONFIG_COMMON}"
+        log "アーキテクチャフラグメントを統合中: ${CONFIG_ARCH}"
+        scripts/kconfig/merge_config.sh -m -O . .config "${CONFIG_ARCH}"
+        if [ ! -f .config ]; then
+            err "merge_config.sh 実行後に .config が見つかりません。merge_config.sh が失敗した可能性があります。"
+            exit 1
+        fi
 
-# ---- 3. objtool と stack validation を無効化 ----
-# x86_64 の既定 unwinder (ORC) は objtool を必要とするため、フレームポインタ方式へ切り替える。
-# objtool と stack validation は GitHub Actions ランナーでビルドに失敗するため無効化。
+        # ---- 3. objtool と stack validation を無効化 ----
+        # x86_64 の既定 unwinder (ORC) は objtool を必要とするため、フレームポインタ方式へ切り替える。
+        # objtool と stack validation は GitHub Actions ランナーでビルドに失敗するため無効化。
+        scripts/config --disable UNWINDER_ORC --enable UNWINDER_FRAME_POINTER || true
+        scripts/config --disable OBJTOOL || true
+        scripts/config --disable STACKVALIDATION || true
 
-scripts/config --disable UNWINDER_ORC --enable UNWINDER_FRAME_POINTER || true
-scripts/config --disable OBJTOOL || true
-scripts/config --disable STACKVALIDATION || true
+        grep -v '^CONFIG_OBJTOOL=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true
+        echo '# CONFIG_OBJTOOL is not set' >> .config
+        grep -v '^CONFIG_STACK_VALIDATION=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true
+        echo '# CONFIG_STACK_VALIDATION is not set' >> .config
 
-# olddefconfig で上書きされないよう、先に .config に直接書き込み
-grep -v '^CONFIG_OBJTOOL=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true
-echo '# CONFIG_OBJTOOL is not set' >> .config
-grep -v '^CONFIG_STACK_VALIDATION=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true
-echo '# CONFIG_STACK_VALIDATION is not set' >> .config
+        yes "" | make ARCH="${ARCH}" olddefconfig
 
-yes "" | make ARCH="${ARCH}" olddefconfig
+        # olddefconfig で上書きされた場合に備え、再度確実に無効化
+        grep -v '^CONFIG_OBJTOOL=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true
+        echo '# CONFIG_OBJTOOL is not set' >> .config
+        grep -v '^CONFIG_STACK_VALIDATION=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true
+        echo '# CONFIG_STACK_VALIDATION is not set' >> .config
 
-# olddefconfig で上書きされた場合に備え、再度確実に無効化
-grep -v '^CONFIG_OBJTOOL=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true
-echo '# CONFIG_OBJTOOL is not set' >> .config
-grep -v '^CONFIG_STACK_VALIDATION=' .config > .config.tmp 2>/dev/null && mv .config.tmp .config || true
-echo '# CONFIG_STACK_VALIDATION is not set' >> .config
+        # ---- 4. 設定値の検証 ----
+        verify_warn() {
+            if ! grep -q "^$1\$" .config; then
+                warn "設定の確認: $1 が .config に見つかりません (継続します)"
+            else
+                log "設定 OK: $1"
+            fi
+        }
+        verify_warn "# CONFIG_OBJTOOL is not set"
+        verify_warn "# CONFIG_STACK_VALIDATION is not set"
+        verify_warn "CONFIG_UNWINDER_FRAME_POINTER=y"
+        log "設定の確認を完了しました"
 
-# ---- 4. 設定値の検証 ----
-verify_warn() {
-    if ! grep -q "^$1\$" .config; then
-        warn "設定の確認: $1 が .config に見つかりません (継続します)"
-    else
-        log "設定 OK: $1"
-    fi
-}
-verify_warn "# CONFIG_OBJTOOL is not set"
-verify_warn "# CONFIG_STACK_VALIDATION is not set"
-verify_warn "CONFIG_UNWINDER_FRAME_POINTER=y"
-log "設定の確認を完了しました"
+        # ---- 5. コンパイル ----
+        # クロスコンパイル対応: arm64 ビルド時のみ CROSS_COMPILE を使用
+        # x86_64 ビルド時は環境変数 CROSS_COMPILE が設定されていても無視し、ネイティブビルドする
+        log "カーネルをコンパイルします (ARCH=${ARCH}, 並列数=${JOBS})"
+        if [ "$ARCH" = "arm64" ]; then
+            if [ -n "${CROSS_COMPILE:-}" ]; then
+                log "クロスコンパイラ: ${CROSS_COMPILE}"
+                make ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" -j"${JOBS}" ${KERNEL_TARGET}
+            else
+                err "arm64 ビルドには CROSS_COMPILE 環境変数が必要です (例: aarch64-linux-gnu-)"
+                exit 1
+            fi
+        else
+            log "ネイティブビルド: ${ARCH}"
+            make ARCH="${ARCH}" -j"${JOBS}" ${KERNEL_TARGET}
+        fi
 
-# アーキテクチャ別出力ファイル名と make ターゲット
-case "$ARCH" in
-    x86_64) KERNEL_IMAGE="arch/x86/boot/bzImage"; KERNEL_TARGET="bzImage" ;;
-    arm64)  KERNEL_IMAGE="arch/arm64/boot/Image";  KERNEL_TARGET="Image" ;;
-esac
+        # ---- 6. 成果物の確認 ----
+        if [ ! -f "${SRC_DIR}/${KERNEL_IMAGE}" ]; then
+            err "カーネルイメージが生成されませんでした: ${SRC_DIR}/${KERNEL_IMAGE}"
+            exit 1
+        fi
 
-# ---- 5. コンパイル ----
-# クロスコンパイル対応: arm64 ビルド時のみ CROSS_COMPILE を使用
-# x86_64 ビルド時は環境変数 CROSS_COMPILE が設定されていても無視し、ネイティブビルドする
-log "カーネルをコンパイルします (ARCH=${ARCH}, 並列数=${JOBS})"
-if [ "$ARCH" = "arm64" ]; then
-    if [ -n "${CROSS_COMPILE:-}" ]; then
-        log "クロスコンパイラ: ${CROSS_COMPILE}"
-        make ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" -j"${JOBS}" ${KERNEL_TARGET}
-    else
-        err "arm64 ビルドには CROSS_COMPILE 環境変数が必要です (例: aarch64-linux-gnu-)"
+        log "カーネルイメージ出力: ${SRC_DIR}/${KERNEL_IMAGE}"
+        ;;
+    Darwin)
+        if command -v docker >/dev/null 2>&1; then
+            log "macOS 上で docker を検出。Linux コンテナ内でカーネルをビルドします"
+            if docker build -q -t sabakanos-build:latest -f "${ROOT}/Dockerfile.build" "${ROOT}" >/dev/null 2>&1 \
+                && docker run --rm -v "${ROOT}:/workspace:rw" sabakanos-build:latest /workspace/scripts/build-kernel.sh "${ARCH}" >/dev/null 2>&1; then
+                log "docker コンテナ内ビルド完了 (${ARCH})"
+            else
+                warn "docker ビルドに失敗しました (デーモン未起動等)。プレースホルダを出力します"
+                mkdir -p "$(dirname "${SRC_DIR}/${KERNEL_IMAGE}")"
+                printf 'SABAKANOS_PLACEHOLDER_KERNEL_IMAGE\n' > "${SRC_DIR}/${KERNEL_IMAGE}"
+                warn "プレースホルダカーネルイメージを出力: ${SRC_DIR}/${KERNEL_IMAGE} (非ブート可能、Linux 環境で再ビルド要)"
+            fi
+        else
+            warn "docker が利用できません。macOS ホスト上で kbuild は動作しないため、.config 生成のみ試行しプレースホルダを出力します"
+            # .config 生成をベストエフォートで試行 (macOS ホストのコンパイラで動作する場合のみ)
+            if make ARCH="${ARCH}" defconfig >/dev/null 2>&1; then
+                log "defconfig 生成完了"
+                if [ -f scripts/kconfig/merge_config.sh ]; then
+                    scripts/kconfig/merge_config.sh -m -O . .config "${CONFIG_COMMON}" >/dev/null 2>&1 || true
+                    scripts/kconfig/merge_config.sh -m -O . .config "${CONFIG_ARCH}" >/dev/null 2>&1 || true
+                fi
+            else
+                warn "make defconfig が失敗しました (macOS ホスト環境)"
+            fi
+            # 非ブート可能プレースホルダ bzImage を出力
+            mkdir -p "$(dirname "${SRC_DIR}/${KERNEL_IMAGE}")"
+            printf 'SABAKANOS_PLACEHOLDER_KERNEL_IMAGE\n' > "${SRC_DIR}/${KERNEL_IMAGE}"
+            warn "プレースホルダカーネルイメージを出力: ${SRC_DIR}/${KERNEL_IMAGE} (非ブート可能、Linux 環境で再ビルド要)"
+        fi
+        ;;
+    *)
+        err "サポートしていないプラットフォーム: ${PLATFORM}"
         exit 1
-    fi
-else
-    log "ネイティブビルド: ${ARCH}"
-    make ARCH="${ARCH}" -j"${JOBS}" ${KERNEL_TARGET}
-fi
-
-# ---- 6. 成果物の確認 ----
-if [ ! -f "${SRC_DIR}/${KERNEL_IMAGE}" ]; then
-    err "カーネルイメージが生成されませんでした: ${SRC_DIR}/${KERNEL_IMAGE}"
-    exit 1
-fi
-
-log "カーネルイメージ出力: ${SRC_DIR}/${KERNEL_IMAGE}"
+        ;;
+esac
 
 # カーネル成果物を ISO 生成スクリプトの参照パスへコピー（自動化）
 mkdir -p "${ROOT}/build/kernel_dir" 2>/dev/null || true

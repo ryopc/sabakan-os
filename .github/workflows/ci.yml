@@ -426,7 +426,7 @@ jobs:
         run: |
           set -euo pipefail
           cd rootfs && find . | cpio -o -H newc | gzip > ../build/initramfs.img
-          ls -lh build/initramfs.img
+          ls -lh ../build/initramfs.img
 
       - name: Limine をソースからビルド
         run: |

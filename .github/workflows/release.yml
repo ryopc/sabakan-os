@@ -53,22 +53,43 @@ jobs:
           name: iso-image
           path: dist
 
+      - name: arm64 ISO 成果物を取得
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: iso-image-arm64
+          path: dist-arm64
+
       - name: 成果物の確認とリネーム
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
           mkdir -p dist
-          iso=$(find dist -type f -name 'sabakanos.iso' -print -quit)
-          if [ -z "$iso" ]; then
-            echo "::warning::ISO が見つかりません。カーネルビルド未成功のため、ISO なしでリリースを継続します。"
-            touch dist/.no-iso
+
+          # x86_64 ISO
+          iso_x86=$(find dist -type f -name 'sabakanos.iso' -print -quit)
+          if [ -z "$iso_x86" ]; then
+            echo "::warning::x86_64 ISO が見つかりません。"
           else
-            target="dist/sabakanos-${version}-x86_64.iso"
-            mv "$iso" "$target"
-            rm -f dist/SHA256SUMS
-            ls -lh dist
-            test -s iso/COPYING
+            mv "$iso_x86" "dist/sabakanos-${version}-x86_64.iso"
           fi
+
+          # arm64 ISO
+          iso_arm64=$(find dist-arm64 -type f -name 'sabakanos.iso' -print -quit)
+          if [ -z "$iso_arm64" ]; then
+            echo "::warning::arm64 ISO が見つかりません。"
+          else
+            mv "$iso_arm64" "dist/sabakanos-${version}-arm64.iso"
+          fi
+
+          if [ ! -f "dist/sabakanos-${version}-x86_64.iso" ] && [ ! -f "dist/sabakanos-${version}-arm64.iso" ]; then
+            echo "::warning::ISO がいずれも見つかりません。ISO なしでリリースを継続します。"
+            touch dist/.no-iso
+          fi
+
+          rm -f dist/SHA256SUMS
+          ls -lh dist
+          test -s iso/COPYING
 
       - name: ソースバンドルを作成
         run: |
@@ -105,10 +126,12 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          if [ -f dist/.no-iso ]; then
-            iso_row=""
-          else
-            iso_row="| \`sabakanos-${version}-x86_64.iso\` | インストール / Live 用 ISO イメージ |"
+          iso_rows=""
+          if [ -f "dist/sabakanos-${version}-x86_64.iso" ]; then
+            iso_rows="${iso_rows}| \`sabakanos-${version}-x86_64.iso\` | x86_64 インストール / Live 用 ISO イメージ |"
+          fi
+          if [ -f "dist/sabakanos-${version}-arm64.iso" ]; then
+            iso_rows="${iso_rows}| \`sabakanos-${version}-arm64.iso\` | arm64 インストール / Live 用 ISO イメージ |"
           fi
           cat > notes.md <<EOF
           ## SabakanOS ${version}
@@ -117,7 +140,7 @@ jobs:
 
           | ファイル | 内容 |
           |----------|------|
-          ${iso_row}
+          ${iso_rows}
           | \`sabakanos-${version}-source.tar.zst\` | 対応ソースコード一式 |
           | \`COPYING\` | 同梱 OSS のライセンス一覧 |
           | \`SHA256SUMS\` | 全添付ファイルの SHA-256 |
@@ -153,11 +176,11 @@ jobs:
           gh release view "${GITHUB_REF_NAME}" --json assets \
             --jq '.assets[].name' | sort
           count=$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets | length')
-          if [ -f dist/.no-iso ]; then
-            min_assets=3
-          else
-            min_assets=4
-          fi
+          iso_count=0
+          [ -f "dist/sabakanos-${version}-x86_64.iso" ] && iso_count=$((iso_count + 1))
+          [ -f "dist/sabakanos-${version}-arm64.iso" ] && iso_count=$((iso_count + 1))
+          # source.tar.zst + COPYING + SHA256SUMS + ISO(s)
+          min_assets=$((3 + iso_count))
           if [ "$count" -lt "$min_assets" ]; then
             echo "::error::添付ファイルが不足しています（${count} 件）。最低 ${min_assets} 件必要です"
             exit 1

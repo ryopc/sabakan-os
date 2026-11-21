@@ -50,7 +50,7 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: iso-image
+          name: iso-image-x86_64
           path: dist
 
       - name: arm64 ISO 成果物を取得
@@ -97,9 +97,9 @@ jobs:
       - name: ソースバンドルを作成
         run: |
           set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends zstd
-          version="${GITHUB_REF_NAME#v}"
           bundle="dist/sabakanos-${version}-source.tar.zst"
 
           if make -n source-bundle >/dev/null 2>&1; then
@@ -121,6 +121,7 @@ jobs:
       - name: チェックサムとライセンス一覧を添付
         run: |
           set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
           cp iso/COPYING dist/COPYING
           (cd dist && sha256sum ./* > SHA256SUMS)
           cat dist/SHA256SUMS
@@ -176,6 +177,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
           gh release view "${GITHUB_REF_NAME}" --json assets \
             --jq '.assets[].name' | sort
           count=$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets | length')

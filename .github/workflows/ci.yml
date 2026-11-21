@@ -231,7 +231,7 @@ jobs:
             build-essential bc bison flex libelf-dev libssl-dev dwarves \
             cpio kmod rsync curl wget xz-utils git make zstd \
             clang llvm lld \
-            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu libc6-dev-arm64-cross
 
       - name: ビルド環境の情報
         run: |
@@ -380,7 +380,7 @@ jobs:
             cpio kmod rsync curl wget xz-utils git make zstd \
             xorriso mtools dosfstools \
             gcc-x86-64-linux-gnu binutils-x86-64-linux-gnu nasm perl \
-            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu libc6-dev-arm64-cross
 
       - name: カーネル成果物を取得
         uses: actions/download-artifact@v4

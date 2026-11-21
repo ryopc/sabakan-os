@@ -357,12 +357,16 @@ jobs:
           key: sabakanos-rootfs-${{ runner.os }}-${{ hashFiles('config/buildroot-defconfig') }}
 
   build_iso:
-    name: ISO ビルド（参考）
+    name: ISO ビルド（${{ matrix.arch }}）（参考）
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     needs:
       - build_rootfs
       - build_kernel
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, arm64]
     continue-on-error: true
     steps:
       - name: リポジトリを取得
@@ -375,12 +379,13 @@ jobs:
             build-essential bc bison flex libelf-dev libssl-dev dwarves \
             cpio kmod rsync curl wget xz-utils git make zstd \
             xorriso mtools dosfstools \
-            gcc-x86-64-linux-gnu binutils-x86-64-linux-gnu nasm perl
+            gcc-x86-64-linux-gnu binutils-x86-64-linux-gnu nasm perl \
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
 
       - name: カーネル成果物を取得
         uses: actions/download-artifact@v4
         with:
-          name: kernel-build-x86_64
+          name: kernel-build-${{ matrix.arch }}
           path: build
 
       - name: ルートFS成果物を取得
@@ -399,11 +404,20 @@ jobs:
       - name: カーネルを ISO 生成スクリプトの候補パスへ配置
         run: |
           set -euo pipefail
-          image=$(find build -type f -name bzImage -print -quit)
-          if [ -z "$image" ]; then
-            echo "::error::bzImage が見つかりません"
-            find build -maxdepth 3 -type f | head -n 20 || true
-            exit 1
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            image=$(find build -type f -name Image -print -quit)
+            if [ -z "$image" ]; then
+              echo "::error::arm64 カーネルイメージ (Image) が見つかりません"
+              find build -maxdepth 3 -type f | head -n 20 || true
+              exit 1
+            fi
+          else
+            image=$(find build -type f -name bzImage -print -quit)
+            if [ -z "$image" ]; then
+              echo "::error::bzImage が見つかりません"
+              find build -maxdepth 3 -type f | head -n 20 || true
+              exit 1
+            fi
           fi
           # build-iso.sh は $BUILD_DIR/kernel をファイル（-f）として探すため、
           # ディレクトリではなくファイルとして直接コピーする
@@ -419,17 +433,31 @@ jobs:
           curl -fsSL -o limine.tar.xz "https://github.com/limine-bootloader/limine/releases/download/v${LIMINE_VER}/limine-${LIMINE_VER}.tar.xz"
           tar -xf limine.tar.xz
           cd "limine-${LIMINE_VER}"
-          ./configure --host=x86_64-unknown-linux-gnu \
-            --enable-bios --enable-bios-cd --enable-bios-pxe \
-            --enable-uefi-x86-64 \
-            CC=x86_64-linux-gnu-gcc \
-            CC_FOR_TARGET=x86_64-linux-gnu-gcc \
-            LD_FOR_TARGET=x86_64-linux-gnu-ld \
-            OBJCOPY_FOR_TARGET=x86_64-linux-gnu-objcopy \
-            OBJDUMP_FOR_TARGET=x86_64-linux-gnu-objdump \
-            STRIP=x86_64-linux-gnu-strip \
-            READELF_FOR_TARGET=x86_64-linux-gnu-readelf \
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            ./configure --host=aarch64-linux-gnu \
+              --enable-bios --enable-bios-cd --enable-bios-pxe \
+              --enable-uefi-aarch64 \
+              CC=aarch64-linux-gnu-gcc \
+              CC_FOR_TARGET=aarch64-linux-gnu-gcc \
+              LD_FOR_TARGET=aarch64-linux-gnu-ld \
+              OBJCOPY_FOR_TARGET=aarch64-linux-gnu-objcopy \
+              OBJDUMP_FOR_TARGET=aarch64-linux-gnu-objdump \
+              STRIP=aarch64-linux-gnu-strip \
+              READELF_FOR_TARGET=aarch64-linux-gnu-readelf \
+              NM_FOR_TARGET=aarch64-linux-gnu-nm
+          else
+            ./configure --host=x86_64-unknown-linux-gnu \
+              --enable-bios --enable-bios-cd --enable-bios-pxe \
+              --enable-uefi-x86-64 \
+              CC=x86_64-linux-gnu-gcc \
+              CC_FOR_TARGET=x86_64-linux-gnu-gcc \
+              LD_FOR_TARGET=x86_64-linux-gnu-ld \
+              OBJCOPY_FOR_TARGET=x86_64-linux-gnu-objcopy \
+              OBJDUMP_FOR_TARGET=x86_64-linux-gnu-objdump \
+              STRIP=x86_64-linux-gnu-strip \
+              READELF_FOR_TARGET=x86_64-linux-gnu-readelf \
               NM_FOR_TARGET=x86_64-linux-gnu-nm
+          fi
           make
           # Limine BIOS ブートイメージを探してコピー（場所はバージョンにより異なるため）
           BIOS_SYS=$(find . -name "limine-bios.sys" 2>/dev/null | head -1)
@@ -437,9 +465,16 @@ jobs:
             cp "$BIOS_SYS" ../limine-bios.sys
             cp "$BIOS_SYS" ../limine-bios-cd.bin
           fi
-          if [ -f common-uefi-x86-64/BOOTX64.EFI ]; then
-            cp common-uefi-x86-64/BOOTX64.EFI ../limine-uefi-cd.bin
-            cp common-uefi-x86-64/BOOTX64.EFI ../limine-efi.sys
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            if [ -f common-uefi-aarch64/BOOTAA64.EFI ]; then
+              cp common-uefi-aarch64/BOOTAA64.EFI ../limine-uefi-cd.bin
+              cp common-uefi-aarch64/BOOTAA64.EFI ../limine-efi.sys
+            fi
+          else
+            if [ -f common-uefi-x86-64/BOOTX64.EFI ]; then
+              cp common-uefi-x86-64/BOOTX64.EFI ../limine-uefi-cd.bin
+              cp common-uefi-x86-64/BOOTX64.EFI ../limine-efi.sys
+            fi
           fi
           ls -la ../limine-bios-cd.bin ../limine-bios.sys ../limine-uefi-cd.bin ../limine-efi.sys 2>&1 || true
           cd ../..
@@ -452,7 +487,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ ! -s build/sabakanos.iso ]; then
-            echo "::error::ISO が生成されていません"
+            echo "::error::ISO が生成されていません（${{ matrix.arch }}）"
             exit 1
           fi
           ls -lh build/sabakanos.iso
@@ -465,7 +500,7 @@ jobs:
       - name: ISO をアップロード
         uses: actions/upload-artifact@v4
         with:
-          name: iso-image
+          name: iso-image-${{ matrix.arch }}
           path: |
             build/sabakanos.iso
             build/SHA256SUMS

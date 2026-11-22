@@ -180,12 +180,13 @@ resolve_kernel_and_initramfs() {
     KERNEL=""
     INITRAMFS=""
 
-    # カーネル候補
+    # カーネル候補 (build-kernel.sh の正規コピーを最優先。build/bzImage はプレースホルダのため最終手段)
     local kernel_candidates=(
+        "$BUILD_DIR/kernel-${ARCH}"
+        "$BUILD_DIR/linux-6.12.34/arch/x86/boot/bzImage"
         "$BUILD_DIR/kernel"
         "$BUILD_DIR/kernel.elf"
         "$BUILD_DIR/bzImage"
-        "$BUILD_DIR/linux-6.12.34/arch/x86/boot/bzImage"
         "$PROJECT_ROOT/rootfs/boot/kernel"
         "$PROJECT_ROOT/rootfs/boot/kernel.elf"
         "$PROJECT_ROOT/rootfs/boot/bzImage"

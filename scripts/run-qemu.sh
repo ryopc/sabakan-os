@@ -86,14 +86,15 @@ main() {
 
     # シリアル出力キャプチャ用一時ファイル (ttyS0 -> ここでキャプチャ)
     SERIAL_LOG="$(mktemp)"
-    trap 'rm -f "$SERIAL_LOG"' EXIT
+    trap 'rm -f "$SERIAL_LOG" "$QEMU_STDERR"' EXIT
 
     # QEMU はゲストOSが終了しても自前で終了しないため、バックグラウンド起動して
     # シリアル出力をポーリングし、起動完了/タイムアウトで明示的に終了させる。
     SERIAL_PATTERN='SabakanOS 起動完了|sabakan:.*#|sabakan login|root@sabakan'
+    QEMU_STDERR="$(mktemp)"
     set +e
     # shellcheck disable=SC2086
-    qemu-system-x86_64 -serial "file:${SERIAL_LOG}" $QEMU_OPTS -cdrom "$ISO" >/dev/null 2>&1 &
+    qemu-system-x86_64 -serial "file:${SERIAL_LOG}" $QEMU_OPTS -cdrom "$ISO" >/dev/null 2>"$QEMU_STDERR" &
     QEMU_PID=$!
     set -e
 
@@ -132,6 +133,11 @@ main() {
     if [ "$boot_ok" -eq 1 ]; then
         log "ブート成功: シリアル出力から起動完了/シェルプロンプトを検出"
         exit 0
+    fi
+
+    if [ -s "$QEMU_STDERR" ]; then
+        echo "=== QEMU STDERR ==="
+        cat "$QEMU_STDERR"
     fi
 
     if [ "$elapsed" -ge "$QEMU_TIMEOUT" ]; then

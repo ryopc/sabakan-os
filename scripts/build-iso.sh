@@ -134,27 +134,35 @@ resolve_limine_binaries() {
     done
 
     if [[ -z "$LIMINE_BIOS_CD" ]]; then
-        die "Limine El Torito ブートイメージ (limine-bios-cd.bin) が見つかりません。\n"\
+        warn "Limine El Torito ブートイメージ (limine-bios-cd.bin) が見つかりません。BIOS ブートはスキップします。\n"\
+            "  UEFI のみで ISO を生成する場合は問題ありません。\n"\
+            "  入手: https://github.com/limine-bootloader/limine/releases"
+    fi
+    if [[ -z "$LIMINE_BIOS" ]]; then
+        warn "Limine 2 段目ペイロード (limine-bios.sys) が見つかりません。BIOS ブートはスキップします。\n"\
+            "  入手: https://github.com/limine-bootloader/limine/releases"
+    fi
+
+    if [[ -z "$LIMINE_BIOS_CD" && -z "$LIMINE_EFI" ]]; then
+        die "ブート可能な Limine バイナリが見つかりません (BIOS も EFI もなし)。\n"\
+            "  limine-bios-cd.bin / limine-bios.sys (BIOS) または limine-efi.sys (EFI) のいずれかが必要です。\n"\
             "  入手: https://github.com/limine-bootloader/limine/releases\n"\
             "  環境変数 LIMINE_DIR に本体ディレクトリを指定するか、\n"\
             "  build/limine や boot/limine に配置してください。"
     fi
-    if [[ -z "$LIMINE_BIOS" ]]; then
-        die "Limine 2 段目ペイロード (limine-bios.sys) が見つかりません。\n"\
-            "  入手: https://github.com/limine-bootloader/limine/releases\n"\
-            "  環境変数 LIMINE_DIR に本体ディレクトリを指定するか、\n"\
-            "  build/limine や boot/limine に配置してください。"
+    if [[ -n "$LIMINE_BIOS_CD" ]]; then
+        log "Limine BIOS CD (El Torito ブートイメージ): $LIMINE_BIOS_CD"
+    fi
+    if [[ -n "$LIMINE_BIOS" ]]; then
+        log "Limine BIOS (2 段目ペイロード): $LIMINE_BIOS"
     fi
 
     if [[ -z "$LIMINE_TOOL" ]]; then
-        die "Limine ツール (limine) が見つかりません。\n"\
-            "  build/limine/limine-*/bin/limine に配置してください。\n"\
-            "  BIOS ブート用に 'limine bios-install' が必要です。"
+        warn "Limine ツール (limine) が見つかりません。BIOS ブート用の 'limine bios-install' はスキップします。\n"\
+            "  build/limine/limine-*/bin/limine に配置してください。"
+    else
+        log "Limine ツール: $LIMINE_TOOL"
     fi
-
-    log "Limine BIOS CD (El Torito ブートイメージ): $LIMINE_BIOS_CD"
-    log "Limine BIOS (2 段目ペイロード): $LIMINE_BIOS"
-    log "Limine ツール: $LIMINE_TOOL"
     if [[ -n "$LIMINE_UEFI_CD" ]]; then
         log "Limine UEFI CD (El Torito EFI ブートイメージ): $LIMINE_UEFI_CD"
     fi
@@ -232,13 +240,21 @@ stage_iso_root() {
     cp "$LIMINE_CFG" "$STAGING_DIR/boot/limine.cfg"
     log "コピー: boot/limine.cfg"
 
-    # Limine BIOS El Torito ブートイメージ (ブートセクタ用)
-    cp "$LIMINE_BIOS_CD" "$STAGING_DIR/boot/limine-bios-cd.bin"
-    log "コピー: boot/limine-bios-cd.bin"
+    # Limine BIOS El Torito ブートイメージ (ブートセクタ用) — BIOS 未入手時はスキップ
+    if [[ -n "$LIMINE_BIOS_CD" ]]; then
+        cp "$LIMINE_BIOS_CD" "$STAGING_DIR/boot/limine-bios-cd.bin"
+        log "コピー: boot/limine-bios-cd.bin"
+    else
+        log "スキップ: boot/limine-bios-cd.bin (limine-bios-cd.bin 未入手のため)"
+    fi
 
-    # Limine BIOS ブートローダ (2 段目ペイロード)
-    cp "$LIMINE_BIOS" "$STAGING_DIR/boot/limine-bios.sys"
-    log "コピー: boot/limine-bios.sys"
+    # Limine BIOS ブートローダ (2 段目ペイロード) — BIOS 未入手時はスキップ
+    if [[ -n "$LIMINE_BIOS" ]]; then
+        cp "$LIMINE_BIOS" "$STAGING_DIR/boot/limine-bios.sys"
+        log "コピー: boot/limine-bios.sys"
+    else
+        log "スキップ: boot/limine-bios.sys (limine-bios.sys 未入手のため)"
+    fi
 
     # Limine UEFI El Torito ブートイメージ (EFI ブートセクタ用) — limine-uefi-cd.bin が無い場合はスキップ
     if [[ -n "$LIMINE_UEFI_CD" ]]; then
@@ -274,36 +290,59 @@ build_iso_xorriso() {
     log "ISO イメージを生成中 (xorriso): $ISO_OUT"
     rm -f "$ISO_OUT"
 
-    # EFI ブートローダが無い場合は EFI 関連オプションを除外 (BIOS のみ)
-    if [[ -n "$LIMINE_UEFI_CD" ]]; then
+    # BIOS 利用可否に応じて xorriso オプションを分岐 (BIOS 無し = UEFI のみ)
+    if [[ -n "$LIMINE_BIOS_CD" ]]; then
+        # BIOS ブート可能: El Torito ブートセクタを BIOS CD に設定
+        if [[ -n "$LIMINE_UEFI_CD" ]]; then
+            xorriso -as mkisofs \
+                -o "$ISO_OUT" \
+                -V 'SABAKANOS' \
+                -volid 'SABAKANOS' \
+                -b boot/limine-bios-cd.bin \
+                -no-emul-boot -boot-load-size 4 -boot-info-table \
+                -eltorito-alt-boot \
+                -e boot/limine-uefi-cd.bin \
+                -no-emul-boot \
+                "$STAGING_DIR"
+        elif [[ -n "$LIMINE_EFI" ]]; then
+            xorriso -as mkisofs \
+                -o "$ISO_OUT" \
+                -V 'SABAKANOS' \
+                -volid 'SABAKANOS' \
+                -b boot/limine-bios-cd.bin \
+                -no-emul-boot -boot-load-size 4 -boot-info-table \
+                --efi-boot "EFI/BOOT/${LIMINE_EFI_NAME}" \
+                -efi-boot-part --efi-boot-image --protective-msdos-label \
+                "$STAGING_DIR"
+        else
+            xorriso -as mkisofs \
+                -o "$ISO_OUT" \
+                -V 'SABAKANOS' \
+                -volid 'SABAKANOS' \
+                -b boot/limine-bios-cd.bin \
+                -no-emul-boot -boot-load-size 4 -boot-info-table \
+                "$STAGING_DIR"
+        fi
+    elif [[ -n "$LIMINE_UEFI_CD" ]]; then
+        # UEFI のみ (BIOS なし): El Torito ブートセクタを UEFI CD に設定
         xorriso -as mkisofs \
             -o "$ISO_OUT" \
             -V 'SABAKANOS' \
             -volid 'SABAKANOS' \
-            -b boot/limine-bios-cd.bin \
-            -no-emul-boot -boot-load-size 4 -boot-info-table \
-            -eltorito-alt-boot \
-            -e boot/limine-uefi-cd.bin \
+            -b boot/limine-uefi-cd.bin \
             -no-emul-boot \
             "$STAGING_DIR"
     elif [[ -n "$LIMINE_EFI" ]]; then
+        # UEFI のみ (BIOS なし): --efi-boot で EFI ブートローダを指定
         xorriso -as mkisofs \
             -o "$ISO_OUT" \
             -V 'SABAKANOS' \
             -volid 'SABAKANOS' \
-            -b boot/limine-bios-cd.bin \
-            -no-emul-boot -boot-load-size 4 -boot-info-table \
             --efi-boot "EFI/BOOT/${LIMINE_EFI_NAME}" \
             -efi-boot-part --efi-boot-image --protective-msdos-label \
             "$STAGING_DIR"
     else
-        xorriso -as mkisofs \
-            -o "$ISO_OUT" \
-            -V 'SABAKANOS' \
-            -volid 'SABAKANOS' \
-            -b boot/limine-bios-cd.bin \
-            -no-emul-boot -boot-load-size 4 -boot-info-table \
-            "$STAGING_DIR"
+        die "BIOS および EFI のいずれも利用できず、ブート可能な ISO を生成できません。"
     fi
 
     if [[ ! -f "$ISO_OUT" ]]; then
@@ -312,11 +351,16 @@ build_iso_xorriso() {
 
     # Limine BIOS ブート用パッチ適用 (limine bios-install)
     # macOS では Linux x86_64 バイナリが実行できないため、失敗しても警告にとどめる
-    log "Limine BIOS インストールを適用中: $ISO_OUT"
-    if ! "$LIMINE_TOOL" bios-install "$ISO_OUT" 2>/dev/null; then
-        warn "limine bios-install の適用に失敗しました (このプラットフォームでは実行不可の可能性があります)。\n"\
-            "  BIOS ブートで 'limine-bios.sys size incorrect' エラーが出る場合は、\n"\
-            "  Linux 環境で 'limine bios-install build/sabakanos.iso' を実行してください。"
+    # UEFI のみ (BIOS なし) またはツール未入手時はスキップ
+    if [[ -n "$LIMINE_TOOL" && -n "$LIMINE_BIOS_CD" ]]; then
+        log "Limine BIOS インストールを適用中: $ISO_OUT"
+        if ! "$LIMINE_TOOL" bios-install "$ISO_OUT" 2>/dev/null; then
+            warn "limine bios-install の適用に失敗しました (このプラットフォームでは実行不可の可能性があります)。\n"\
+                "  BIOS ブートで 'limine-bios.sys size incorrect' エラーが出る場合は、\n"\
+                "  Linux 環境で 'limine bios-install build/sabakanos.iso' を実行してください。"
+        fi
+    else
+        log "Limine BIOS インストールをスキップ (BIOS なしまたは limine ツール未入手)"
     fi
 
     local size

@@ -439,7 +439,6 @@ jobs:
           cd "limine-${LIMINE_VER}"
           if [ "${{ matrix.arch }}" = "arm64" ]; then
             ./configure --host=aarch64-linux-gnu \
-              --enable-bios --enable-bios-cd --enable-bios-pxe \
               --enable-uefi-aarch64 \
               CC=aarch64-linux-gnu-gcc \
               CC_FOR_TARGET=aarch64-linux-gnu-gcc \

@@ -463,10 +463,15 @@ jobs:
           fi
           make
           # Limine BIOS ブートイメージを探してコピー（場所はバージョンにより異なるため）
+          # limine-bios.sys (2 段目ペイロード) と limine-bios-cd.bin (El Torito ブートイメージ)
+          # は別々のファイルなので、それぞれ独立してコピーする。
           BIOS_SYS=$(find . -name "limine-bios.sys" 2>/dev/null | head -1)
+          BIOS_CD=$(find . -name "limine-bios-cd.bin" 2>/dev/null | head -1)
           if [ -n "$BIOS_SYS" ]; then
             cp "$BIOS_SYS" ../limine-bios.sys
-            cp "$BIOS_SYS" ../limine-bios-cd.bin
+          fi
+          if [ -n "$BIOS_CD" ]; then
+            cp "$BIOS_CD" ../limine-bios-cd.bin
           fi
           if [ "${{ matrix.arch }}" = "arm64" ]; then
             if [ -f common-uefi-aarch64/BOOTAA64.EFI ]; then

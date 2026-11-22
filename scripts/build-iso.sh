@@ -355,11 +355,10 @@ build_iso_xorriso() {
     # UEFI のみ (BIOS なし) またはツール未入手時はスキップ
     if [[ -n "$LIMINE_TOOL" && -n "$LIMINE_BIOS_CD" ]]; then
         log "Limine BIOS インストールを適用中: $ISO_OUT"
-        if ! "$LIMINE_TOOL" bios-install "$ISO_OUT" 2>/dev/null; then
-            warn "limine bios-install の適用に失敗しました (このプラットフォームでは実行不可の可能性があります)。\n"\
-                "  BIOS ブートで 'limine-bios.sys size incorrect' エラーが出る場合は、\n"\
-                "  Linux 環境で 'limine bios-install build/sabakanos.iso' を実行してください。"
+        if ! "$LIMINE_TOOL" bios-install "$ISO_OUT" 2>/tmp/bios-install-err; then
+            warn "limine bios-install の適用に失敗しました:\n$(cat /tmp/bios-install-err 2>/dev/null)"
         fi
+        rm -f /tmp/bios-install-err
     else
         log "Limine BIOS インストールをスキップ (BIOS なしまたは limine ツール未入手)"
     fi

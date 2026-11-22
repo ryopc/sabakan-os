@@ -88,27 +88,56 @@ main() {
     SERIAL_LOG="$(mktemp)"
     trap 'rm -f "$SERIAL_LOG"' EXIT
 
-    # shellcheck disable=SC2086
+    # QEMU はゲストOSが終了しても自前で終了しないため、バックグラウンド起動して
+    # シリアル出力をポーリングし、起動完了/タイムアウトで明示的に終了させる。
+    SERIAL_PATTERN='SabakanOS 起動完了|sabakan:.*#|sabakan login|root@sabakan'
     set +e
-    timeout "${QEMU_TIMEOUT}" qemu-system-x86_64 -serial "file:${SERIAL_LOG}" $QEMU_OPTS -cdrom "$ISO" >/dev/null 2>&1
-    qemu_status=$?
+    # shellcheck disable=SC2086
+    qemu-system-x86_64 -serial "file:${SERIAL_LOG}" $QEMU_OPTS -cdrom "$ISO" >/dev/null 2>&1 &
+    QEMU_PID=$!
     set -e
+
+    boot_ok=0
+    qemu_status=0
+    elapsed=0
+    while [ "$elapsed" -lt "$QEMU_TIMEOUT" ]; do
+        # QEMU がすでに終了している場合
+        if ! kill -0 "$QEMU_PID" 2>/dev/null; then
+            wait "$QEMU_PID"
+            qemu_status=$?
+            break
+        fi
+
+        # シリアル出力から起動完了/シェルプロンプトを検出
+        if [ -f "$SERIAL_LOG" ] && grep -qE "$SERIAL_PATTERN" "$SERIAL_LOG"; then
+            boot_ok=1
+            break
+        fi
+
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+
+    # まだ動作中なら QEMU を終了させる (起動完了 or タイムアウト)
+    if kill -0 "$QEMU_PID" 2>/dev/null; then
+        kill "$QEMU_PID" 2>/dev/null || true
+        wait "$QEMU_PID" 2>/dev/null || true
+    fi
 
     # キャプチャしたシリアル出力を標準出力にも反映
     if [ -f "$SERIAL_LOG" ]; then
         cat "$SERIAL_LOG"
     fi
 
-    if [ "$qemu_status" -eq 124 ]; then
+    if [ "$boot_ok" -eq 1 ]; then
+        log "ブート成功: シリアル出力から起動完了/シェルプロンプトを検出"
+        exit 0
+    fi
+
+    if [ "$elapsed" -ge "$QEMU_TIMEOUT" ]; then
         die "QEMU 起動がタイムアウトしました (${QEMU_TIMEOUT}秒)"
     elif [ "$qemu_status" -ne 0 ]; then
         die "QEMU が異常終了しました (終了コード: $qemu_status)"
-    fi
-
-    # 起動成功の検出: シリアル出力から「SabakanOS 起動完了」またはシェルプロンプト
-    if [ -f "$SERIAL_LOG" ] && grep -qE 'SabakanOS 起動完了|sabakan:.*#|sabakan login|root@sabakan' "$SERIAL_LOG"; then
-        log "ブート成功: シリアル出力から起動完了/シェルプロンプトを検出"
-        exit 0
     else
         die "ブート失敗: シリアル出力に起動完了/シェルプロンプトが検出されませんでした"
     fi

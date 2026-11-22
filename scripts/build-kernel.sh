@@ -143,17 +143,32 @@ case "$PLATFORM" in
         log "設定の確認を完了しました"
 
         # ---- 5. コンパイル ----
-        # クロスコンパイル対応: arm64 ビルド時のみ CROSS_COMPILE を使用
-        # x86_64 ビルド時は環境変数 CROSS_COMPILE が設定されていても無視し、ネイティブビルドする
-        log "カーネルをコンパイルします (ARCH=${ARCH}, 並列数=${JOBS})"
-        if [ "$ARCH" = "arm64" ]; then
-            if [ -n "${CROSS_COMPILE:-}" ]; then
-                log "クロスコンパイラ: ${CROSS_COMPILE}"
-                make ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" -j"${JOBS}" ${KERNEL_TARGET}
-            else
-                err "arm64 ビルドには CROSS_COMPILE 環境変数が必要です (例: aarch64-linux-gnu-)"
-                exit 1
-            fi
+        # ホストアーキテクチャ != ターゲットアーキテクチャの場合は
+        # 自動的にクロスコンパイラを適用 (macOS->Docker arm64 コンテナ内での
+        # x86_64 カーネルビルド等に対応)。
+        HOST_ARCH="$(uname -m)"
+        case "$HOST_ARCH" in
+            x86_64|amd64) HOST_ARCH=x86_64 ;;
+            aarch64|arm64) HOST_ARCH=arm64 ;;
+        esac
+        case "$ARCH" in
+            x86_64)
+                if [ "$HOST_ARCH" != "x86_64" ] && [ -z "${CROSS_COMPILE:-}" ]; then
+                    CROSS_COMPILE="x86_64-linux-gnu-"
+                    log "ホスト(${HOST_ARCH}) != ターゲット(${ARCH})。クロスコンパイラを自動設定: ${CROSS_COMPILE}"
+                fi
+                ;;
+            arm64)
+                if [ "$HOST_ARCH" != "arm64" ] && [ -z "${CROSS_COMPILE:-}" ]; then
+                    err "arm64 ビルドには CROSS_COMPILE 環境変数が必要です (例: aarch64-linux-gnu-)"
+                    exit 1
+                fi
+                ;;
+        esac
+        log "カーネルをコンパイルします (ARCH=${ARCH}, HOST=${HOST_ARCH}, 並列数=${JOBS})"
+        if [ -n "${CROSS_COMPILE:-}" ]; then
+            log "クロスコンパイラ: ${CROSS_COMPILE}"
+            make ARCH="${ARCH}" CROSS_COMPILE="${CROSS_COMPILE}" -j"${JOBS}" ${KERNEL_TARGET}
         else
             log "ネイティブビルド: ${ARCH}"
             make ARCH="${ARCH}" -j"${JOBS}" ${KERNEL_TARGET}
@@ -169,12 +184,16 @@ case "$PLATFORM" in
         ;;
     Darwin)
         if command -v docker >/dev/null 2>&1; then
-            log "macOS 上で docker を検出。Linux コンテナ内でカーネルをビルドします"
-            if docker build -q -t sabakanos-build:latest -f "${ROOT}/Dockerfile.build" "${ROOT}" >/dev/null 2>&1 \
-                && docker run --rm -v "${ROOT}:/workspace:rw" sabakanos-build:latest /workspace/scripts/build-kernel.sh "${ARCH}" >/dev/null 2>&1; then
+            case "$ARCH" in
+                x86_64) DOCKER_PLATFORM="linux/amd64" ;;
+                arm64)  DOCKER_PLATFORM="linux/arm64" ;;
+            esac
+            log "macOS 上で docker を検出。Linux コンテナ (${DOCKER_PLATFORM}) 内でカーネルをビルドします"
+            if docker build --platform "${DOCKER_PLATFORM}" -q -t sabakanos-build:latest -f "${ROOT}/Dockerfile.build" "${ROOT}" >/dev/null 2>&1 \
+                && docker run --rm --platform "${DOCKER_PLATFORM}" -v "${ROOT}:/workspace:rw" sabakanos-build:latest /workspace/scripts/build-kernel.sh "${ARCH}"; then
                 log "docker コンテナ内ビルド完了 (${ARCH})"
             else
-                warn "docker ビルドに失敗しました (デーモン未起動等)。プレースホルダを出力します"
+                warn "docker ビルドに失敗しました。プレースホルダを出力します"
                 mkdir -p "$(dirname "${SRC_DIR}/${KERNEL_IMAGE}")"
                 printf 'SABAKANOS_PLACEHOLDER_KERNEL_IMAGE\n' > "${SRC_DIR}/${KERNEL_IMAGE}"
                 warn "プレースホルダカーネルイメージを出力: ${SRC_DIR}/${KERNEL_IMAGE} (非ブート可能、Linux 環境で再ビルド要)"

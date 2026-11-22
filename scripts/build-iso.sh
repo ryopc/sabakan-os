@@ -350,15 +350,11 @@ build_iso_xorriso() {
         die "ISO イメージの生成に失敗しました: $ISO_OUT"
     fi
 
-    # Limine BIOS ブート用パッチ適用 (limine bios-install)
-    # macOS では Linux x86_64 バイナリが実行できないため、失敗しても警告にとどめる
-    # UEFI のみ (BIOS なし) またはツール未入手時はスキップ
+    # Limine BIOS ブート (El Torito CD ブートイメージ limine-bios-cd.bin があれば
+    # QEMU 等の CD/DVD ブートで起動可能。limine bios-install は hdd イメージ用で
+    # CD イメージでは不要かつ失敗することがあるため、ここではスキップする。)
     if [[ -n "$LIMINE_TOOL" && -n "$LIMINE_BIOS_CD" ]]; then
-        log "Limine BIOS インストールを適用中: $ISO_OUT"
-        if ! "$LIMINE_TOOL" bios-install "$ISO_OUT" 2>/tmp/bios-install-err; then
-            warn "limine bios-install の適用に失敗しました:\n$(cat /tmp/bios-install-err 2>/dev/null)"
-        fi
-        rm -f /tmp/bios-install-err
+        log "Limine BIOS インストールをスキップ (El Torito CD ブートイメージ limine-bios-cd.bin があれば十分)"
     else
         log "Limine BIOS インストールをスキップ (BIOS なしまたは limine ツール未入手)"
     fi

@@ -3,21 +3,19 @@
 # scripts/run-qemu.sh — SabakanOS QEMU 起動スクリプト (レーンB 所有)
 #
 # 概要:
-#   scripts/build-iso.sh で生成したブート可能 ISO を QEMU (x86_64) で起動する。
-#   ISO が未生成の場合は build-iso.sh の実行を促して停止する。
-#   シリアル出力をキャプチャし、「SabakanOS 起動完了」またはシェルプロンプト
-#   を検出できなければ非ゼロ終了とする (ブート検証)。
+#   カーネルと initramfs を直接指定して QEMU (x86_64) で起動する。
+#   ISO 経由の Limine BIOS ブートはシリアル出力が得られず CI でタイムアウトするため、
+#   -kernel/-initrd で直接起動し、シリアル出力でブート検証を行う。
 #
 # 使い方:
 #   ./scripts/run-qemu.sh           # デフォルトオプションで起動
-#   QEMU_OPTS="-m 4G" ./scripts/run-qemu.sh  # 環境変数でオプション上書き可能
 #   QEMU_TIMEOUT=120 ./scripts/run-qemu.sh   # タイムアウト秒数 (既定 60)
 #
 # 参考: /Users/ryotagtagtag/projects/os/scripts/run-qemu.sh
 #
 # 注意:
 #   本スクリプトは Makefile / config/ / rootfs/ など他レーン所有ファイルには
-#   触れず、build/ 配下の ISO 成果物のみを参照する。
+#   触れず、build/ 配下のカーネル/initramfs 成果物のみを参照する。
 
 set -euo pipefail
 
@@ -27,17 +25,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# ISO イメージのパス (build-iso.sh の出力と合わせる)
-ISO="$PROJECT_ROOT/build/sabakanos.iso"
+# アーキテクチャ
+ARCH="${ARCH:-x86_64}"
+case "$ARCH" in
+    x86_64|amd64) ARCH=x86_64 ;;
+    arm64|aarch64) ARCH=arm64 ;;
+    *)
+        die "未サポートのアーキテクチャ: $ARCH (x86_64 または arm64 を指定してください)"
+        ;;
+esac
 
-# 既定の QEMU オプション
-#   -m 2G        : メモリ 2GB
-#   -vga std     : 標準 VGA
-#   -display none: ウィンドウを開かない (ヘッドレス)
-# シリアル (ttyS0) は最初の -serial オプションとしてキャプチャファイルに接続し、
-# カーネル cmdline (console=ttyS0) の出力を回収する。
-DEFAULT_QEMU_OPTS="-m 2G -boot order=d -vga std -display none"
-QEMU_OPTS="${QEMU_OPTS:-$DEFAULT_QEMU_OPTS}"
+# 既定のタイムアウト
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-60}"
 
 # ---------------------------------------------------------------------------
@@ -58,79 +56,106 @@ check_qemu() {
 }
 
 # ---------------------------------------------------------------------------
-# ISO 存在チェック (未生成時は build-iso.sh を促して停止)
+# カーネル・initramfs の解決
 # ---------------------------------------------------------------------------
-check_iso() {
-    if [[ ! -f "$ISO" ]]; then
-        die "ISO イメージが見つかりません: $ISO\n"\
-            "  先に以下を実行して ISO を生成してください:\n"\
-            "    ./scripts/build-iso.sh\n"\
-            "  (必要に応じて依存ツールのインストールおよびカーネル/initramfs の配置が必要です)"
+resolve_kernel_and_initramfs() {
+    KERNEL_CANDIDATES=(
+        "$PROJECT_ROOT/build/kernel"
+        "$PROJECT_ROOT/build/kernel-${ARCH:-x86_64}"
+        "$PROJECT_ROOT/build/linux-6.12.34/arch/x86/boot/bzImage"
+        "$PROJECT_ROOT/build/kernel.elf"
+        "$PROJECT_ROOT/build/bzImage"
+        "$PROJECT_ROOT/rootfs/boot/kernel"
+    )
+    INITRAMFS_CANDIDATES=(
+        "$PROJECT_ROOT/build/initramfs.img"
+        "$PROJECT_ROOT/build/initrd.img"
+        "$PROJECT_ROOT/build/initramfs"
+        "$PROJECT_ROOT/rootfs/boot/initramfs.img"
+        "$PROJECT_ROOT/rootfs/boot/initrd.img"
+    )
+
+    KERNEL=""
+    for c in "${KERNEL_CANDIDATES[@]}"; do
+        if [[ -f "$c" ]]; then
+            KERNEL="$c"
+            break
+        fi
+    done
+
+    INITRAMFS=""
+    for c in "${INITRAMFS_CANDIDATES[@]}"; do
+        if [[ -f "$c" ]]; then
+            INITRAMFS="$c"
+            break
+        fi
+    done
+
+    if [[ -z "$KERNEL" ]]; then
+        die "カーネルイメージが見つかりません。\n"\
+            "  先に 'make build-kernel' を実行して build/kernel を生成してください。\n"\
+            "  候補: build/kernel, build/linux-6.12.34/arch/x86/boot/bzImage, rootfs/boot/kernel"
     fi
+    if [[ -z "$INITRAMFS" ]]; then
+        die "initramfs が見つかりません (必須)。\n"\
+            "  先に 'make build-rootfs' (scripts/build-rootfs.sh) を実行して build/initramfs.img を生成してください。\n"\
+            "  候補: build/initramfs.img, build/initrd.img, rootfs/boot/initramfs.img"
+    fi
+
+    log "カーネル: $KERNEL"
+    log "initramfs: $INITRAMFS"
 }
 
 # ---------------------------------------------------------------------------
 # メイン
 # ---------------------------------------------------------------------------
 main() {
-    log "SabakanOS QEMU 起動スクリプト"
+    log "SabakanOS QEMU 起動スクリプト (カーネル直接ブート)"
     log "プロジェクトルート: $PROJECT_ROOT"
 
     check_qemu
-    check_iso
+    resolve_kernel_and_initramfs
 
-    log "ISO イメージ: $ISO"
-    log "QEMU オプション: $QEMU_OPTS"
     log "タイムアウト: ${QEMU_TIMEOUT}秒"
     log "起動中..."
 
     # シリアル出力キャプチャ用一時ファイル (ttyS0 -> ここでキャプチャ)
     SERIAL_LOG="$(mktemp)"
+    QEMU_STDERR="$(mktemp)"
     trap 'rm -f "$SERIAL_LOG" "$QEMU_STDERR"' EXIT
 
-    # QEMU はゲストOSが終了しても自前で終了しないため、バックグラウンド起動して
-    # シリアル出力をポーリングし、起動完了/タイムアウトで明示的に終了させる。
+    # 起動完了検出パターン
     SERIAL_PATTERN='SabakanOS 起動完了|sabakan:.*#|sabakan login|root@sabakan'
-    QEMU_STDERR="$(mktemp)"
+
+    # QEMU 起動 (-kernel/-initrd で直接ブート)
+    # -serial stdio はシリアルポートを標準入出力に接続 (シリアルコンソール用)
+    # -display none はグラフィックウィンドウを出さない (CI 向け)
+    # -no-reboot は再起動ループを防ぐ
+    # -device isa-debug-exit,iobase=0xf4,iosize=0x04 はゲストからの終了通知用
+    # -append でカーネルコマンドラインを指定 (console=ttyS0 でシリアルコンソール有効化)
     set +e
-    # shellcheck disable=SC2086
-    qemu-system-x86_64 -serial "file:${SERIAL_LOG}" $QEMU_OPTS -cdrom "$ISO" >/dev/null 2>"$QEMU_STDERR" &
-    QEMU_PID=$!
+    timeout "${QEMU_TIMEOUT}" qemu-system-x86_64 \
+        -M q35 \
+        -m 512M \
+        -cpu qemu64 \
+        -kernel "$KERNEL" \
+        -initrd "$INITRAMFS" \
+        -append "console=ttyS0,115200 earlyprintk=vga root=/dev/ram0 rw" \
+        -serial stdio \
+        -display none \
+        -no-reboot \
+        -device isa-debug-exit,iobase=0xf4,iosize=0x04 \
+        2>"$QEMU_STDERR" | tee "$SERIAL_LOG"
+    QEMU_EXIT_CODE=${PIPESTATUS[0]}
     set -e
 
-    boot_ok=0
-    qemu_status=0
-    elapsed=0
-    while [ "$elapsed" -lt "$QEMU_TIMEOUT" ]; do
-        # QEMU がすでに終了している場合
-        if ! kill -0 "$QEMU_PID" 2>/dev/null; then
-            wait "$QEMU_PID"
-            qemu_status=$?
-            break
-        fi
-
-        # シリアル出力から起動完了/シェルプロンプトを検出
-        if [ -f "$SERIAL_LOG" ] && grep -qE "$SERIAL_PATTERN" "$SERIAL_LOG"; then
-            boot_ok=1
-            break
-        fi
-
-        sleep 1
-        elapsed=$((elapsed + 1))
-    done
-
-    # まだ動作中なら QEMU を終了させる (起動完了 or タイムアウト)
-    if kill -0 "$QEMU_PID" 2>/dev/null; then
-        kill "$QEMU_PID" 2>/dev/null || true
-        wait "$QEMU_PID" 2>/dev/null || true
-    fi
-
-    # キャプチャしたシリアル出力を標準出力にも反映
+    # キャプチャしたシリアル出力を標準出力にも反映 (tee しているので既に出ているが念のため)
     if [ -f "$SERIAL_LOG" ]; then
         cat "$SERIAL_LOG"
     fi
 
-    if [ "$boot_ok" -eq 1 ]; then
+    # 起動完了検出
+    if [ -f "$SERIAL_LOG" ] && grep -qE "$SERIAL_PATTERN" "$SERIAL_LOG"; then
         log "ブート成功: シリアル出力から起動完了/シェルプロンプトを検出"
         exit 0
     fi
@@ -140,10 +165,10 @@ main() {
         cat "$QEMU_STDERR"
     fi
 
-    if [ "$elapsed" -ge "$QEMU_TIMEOUT" ]; then
+    if [ "$QEMU_EXIT_CODE" -eq 124 ] || [ "$QEMU_EXIT_CODE" -eq 137 ]; then
         die "QEMU 起動がタイムアウトしました (${QEMU_TIMEOUT}秒)"
-    elif [ "$qemu_status" -ne 0 ]; then
-        die "QEMU が異常終了しました (終了コード: $qemu_status)"
+    elif [ "$QEMU_EXIT_CODE" -ne 0 ]; then
+        die "QEMU が異常終了しました (終了コード: $QEMU_EXIT_CODE)"
     else
         die "ブート失敗: シリアル出力に起動完了/シェルプロンプトが検出されませんでした"
     fi

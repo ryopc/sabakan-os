@@ -520,7 +520,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     needs:
-      - build_iso
+      - build_kernel
+      - build_rootfs
     steps:
       - name: リポジトリを取得
         uses: actions/checkout@v4
@@ -530,11 +531,36 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends qemu-system-x86
 
-      - name: ISO 成果物を取得
+      - name: カーネル成果物を取得
         uses: actions/download-artifact@v4
         with:
-          name: iso-image-x86_64
+          name: kernel-build-x86_64
           path: build
+
+      - name: ルートFS成果物を取得
+        uses: actions/download-artifact@v4
+        with:
+          name: rootfs-build
+          path: .
+
+      - name: カーネルと initramfs を配置
+        run: |
+          set -euo pipefail
+          image=$(find build -type f -name bzImage -print -quit)
+          if [ -z "$image" ]; then
+            echo "::error::bzImage が見つかりません"
+            find build -maxdepth 3 -type f | head -n 20 || true
+            exit 1
+          fi
+          cp "$image" build/kernel-x86_64
+          ls -lh build/kernel-x86_64
+
+          mkdir -p rootfs
+          sudo tar -C rootfs -xf rootfs.tar
+          rm -f rootfs.tar
+          cd rootfs && find . | cpio -o -H newc | gzip > ../build/initramfs.img
+          cd ..
+          ls -lh build/initramfs.img
 
       - name: ブートテストを実行
         run: |
